@@ -1,11 +1,10 @@
 import pandas as pd
-from db.queries import fetch_all
+from db import queries
+
 
 def get_all_parties() -> pd.DataFrame:
-    return fetch_all("parties")
+    return queries.get_all_parties()
 
-def get_seats_by_party(election_id: int) -> pd.DataFrame:
-    seats = fetch_all("seats")
-    parties = fetch_all("parties")
-    merged = seats.merge(parties, on="party_id")
-    return merged[merged["election_id"] == election_id]
+
+def get_seats_by_election(election_id: int) -> pd.DataFrame:
+    return queries.get_seats_by_election(election_id)

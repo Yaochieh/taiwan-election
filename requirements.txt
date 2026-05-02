@@ -1,7 +1,9 @@
 streamlit
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic>=2.0
 pandas
+openpyxl
+requests
 httpx
 beautifulsoup4
