@@ -72,6 +72,17 @@ CLASSIFY_RULES: list[tuple[str, str, str, str | None]] = [
     ("縣市平原議員",   "",     "council",  "平地原住民"),
     ("直轄市山原議員", "",     "council",  "山地原住民"),
     ("縣市山原議員",   "",     "council",  "山地原住民"),
+    # 2004 第6屆立委（父資料夾用「立法委員」而非「立委」）
+    ("區域",  "立法委員",  "legislative",  "區域"),
+    ("山原",  "立法委員",  "legislative",  "山地原住民"),
+    ("平原",  "立法委員",  "legislative",  "平地原住民"),
+    # 2009/2010 短名稱格式（五都市長、直轄市議員）
+    ("區域議員", "",     "council",   "區域"),
+    ("山地議員", "",     "council",   "山地原住民"),
+    ("平地議員", "",     "council",   "平地原住民"),
+    ("市長",     "五都",  "mayoral",   None),   # 2010年五都市長，需指定父資料夾避免誤配鄉鎮市長
+    # 立委缺額補選（父資料夾含「立委補選」）
+    ("",         "立委補選",  "legislative",  "區域"),
 ]
 
 # 年份無法從路徑推斷時的手動對照表
@@ -311,7 +322,8 @@ def parse_votes(df_ctks: pd.DataFrame) -> dict[tuple, int]:
 
 # ── 主要流程 ──────────────────────────────────────────────────────────────────
 
-def find_index_entry(index: list[dict], etype: str, description: str | None, year: int) -> dict | None:
+def find_index_entry(index: list[dict], etype: str, description: str | None,
+                     year: int, folder_hint: str = "") -> dict | None:
     subject = SUBJECT_ID_MAP.get(etype)
     if not subject:
         return None
@@ -323,7 +335,118 @@ def find_index_entry(index: list[dict], etype: str, description: str | None, yea
         match = [e for e in pool if e.get("legislator_desc") == description]
         if match:
             return match[0]
+    # 資料夾名稱關鍵字匹配（適用於補選等特殊選舉）
+    if folder_hint:
+        clean = re.sub(r"^[\d年第屆任_\-\s]+", "", folder_hint)  # 去除年份/屆次前綴
+        if clean:
+            for entry in pool:
+                entry_name = entry.get("name", "")
+                if clean in entry_name or entry_name.split("年")[-1] in clean:
+                    return entry
     return pool[0] if pool else None
+
+
+def process_folder_new_format(
+    z: zipfile.ZipFile, leaf_dir: str,
+    etype: str, description: str | None, year: int,
+    index: list[dict], conn: sqlite3.Connection | None,
+    dry_run: bool, folder_hint: str = "",
+) -> int:
+    """
+    處理新格式（cand.csv + prof.csv）的選舉資料夾。
+    用於嘉義市長重行選舉、2019年後立委缺額補選等。
+    prof.csv 結構：第 0 列為標題，第 3 欄起為各候選人票數。
+    """
+    def get_file(name: str) -> pd.DataFrame | None:
+        import csv as csv_mod
+        fname = leaf_dir + name
+        for info in z.infolist():
+            try:
+                decoded = info.filename.encode("cp437").decode("cp950")
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                decoded = info.filename
+            if decoded == fname:
+                raw = z.read(info.filename)
+                for enc in ("utf-8-sig", "big5", "cp950"):
+                    try:
+                        text = raw.decode(enc)
+                        break
+                    except (UnicodeDecodeError, LookupError):
+                        pass
+                else:
+                    return None
+                # csv 模組正確處理引號內含逗號（千位分隔數字）
+                rows = list(csv_mod.reader(text.splitlines()))
+                if not rows:
+                    return None
+                max_cols = max(len(r) for r in rows)
+                padded = [r + [""] * (max_cols - len(r)) for r in rows]
+                return pd.DataFrame(padded)
+        return None
+
+    df_cand = get_file("cand.csv")
+    df_prof = get_file("prof.csv")
+    if df_cand is None or df_prof is None:
+        print(f"    缺少必要檔案，跳過")
+        return 0
+
+    # 解析候選人（跳過非數字開頭的標題列）
+    candidates: list[dict] = []
+    for _, row in df_cand.iterrows():
+        try:
+            num = int(str(row[0]).strip())
+        except ValueError:
+            continue
+        name = str(row[1]).strip()
+        party_name = str(row[2]).strip() if len(row) > 2 else ""
+        candidates.append({"num": num, "name": name, "party_name": party_name})
+
+    if not candidates:
+        return 0
+
+    # 彙整得票：略過第 0 列（標題），累加各候選人欄（第 3 欄起）
+    n = len(candidates)
+    vote_totals: list[int] = [0] * n
+    for _, row in df_prof.iloc[1:].iterrows():
+        for i in range(n):
+            try:
+                vote_totals[i] += int(str(row[3 + i]).replace(",", "").strip())
+            except (ValueError, TypeError, KeyError):
+                pass
+
+    max_votes = max(vote_totals) if vote_totals else 0
+    if dry_run:
+        print(f"    [dry-run] {folder_hint} | {n} 候選人 | 最高票 {max_votes:,}")
+        return 0
+
+    # 找或建立 election
+    idx_entry = find_index_entry(index, etype, description, year, folder_hint)
+    if idx_entry:
+        election_name = idx_entry["name"]
+        election_date = idx_entry["vote_date"]
+        theme_id = idx_entry["theme_id"]
+    else:
+        election_name = re.sub(r"^[\d年第屆任_\-\s]+", "", folder_hint) or folder_hint
+        election_date = f"{year}-01-01"
+        theme_id = None
+
+    election_id = upsert_election(conn, election_name, etype, election_date, description, theme_id)
+
+    # 當選者：票數最高
+    winner_num = candidates[vote_totals.index(max_votes)]["num"] if max_votes > 0 else -1
+
+    total_rows = 0
+    for i, cand in enumerate(candidates):
+        party_name = cand["party_name"]
+        party_id = upsert_party(conn, party_name) if party_name and party_name != "無" else None
+        cid = upsert_candidate(conn, cand["name"], election_id, party_id)
+        votes = vote_totals[i] if i < len(vote_totals) else 0
+        is_elected = etype != "council" and (cand["num"] == winner_num)
+        upsert_result(conn, election_id, cid, None, votes, is_elected)
+        total_rows += 1
+
+    conn.commit()
+    return total_rows
 
 
 def process_folder(z: zipfile.ZipFile, leaf_dir: str,
@@ -335,9 +458,18 @@ def process_folder(z: zipfile.ZipFile, leaf_dir: str,
     """
     def get_file(name: str) -> pd.DataFrame | None:
         fname = leaf_dir + name
+        stem = name.rsplit(".", 1)[0]  # e.g. "elcand"
+        ext = "." + name.rsplit(".", 1)[1]  # e.g. ".csv"
         for info in z.infolist():
-            decoded = info.filename.encode("cp437").decode("cp950")
+            try:
+                decoded = info.filename.encode("cp437").decode("cp950")
+            except (UnicodeDecodeError, UnicodeEncodeError):
+                decoded = info.filename
             if decoded == fname:
+                return read_csv(z, info)
+            # 2016年格式：檔名帶型別後綴（elcand_T1.csv, elctks_T1.csv 等）
+            if (decoded.startswith(leaf_dir + stem + "_") and decoded.endswith(ext)
+                    and "/" not in decoded[len(leaf_dir):]):
                 return read_csv(z, info)
         return None
 
@@ -416,7 +548,8 @@ def process_folder(z: zipfile.ZipFile, leaf_dir: str,
     elected_by_area: dict[tuple, int] = {}  # area_key → winning cand_num（SMD 適用）
 
     # council 選舉不設 elected 旗標（SNTV multi-member，需要更多資訊）
-    compute_elected = etype != "council"
+    # 不分區政黨由 compute_party_list_seats.py 另行計算（比例代表制）
+    compute_elected = etype != "council" and description != "不分區政黨"
 
     # 找出每個地區的當選者（票數最多者，SMD 邏輯）
     if compute_elected:
@@ -518,11 +651,18 @@ def main():
                 decoded = info.filename
             all_files.append((decoded, info))
 
-        # 找出所有含 elcand.csv 的資料夾
+        # 找出所有含 elcand*.csv 的資料夾（含 2016 年 elcand_T1.csv 格式）
+        # 排除 old/ 子資料夾（2016年舊版備份）
         leaf_dirs: set[str] = set()
+        new_format_dirs: set[str] = set()
         for decoded, _ in all_files:
-            if decoded.endswith("elcand.csv"):
+            if "/old/" in decoded:
+                continue
+            if re.search(r"/elcand[^/]*\.csv$", decoded):
                 leaf_dirs.add(decoded[: decoded.rfind("/") + 1])
+            # 新格式：cand.csv（補選等），排除鄉鎮層級
+            elif decoded.endswith("/cand.csv") and "鄉鎮" not in decoded and "里長" not in decoded:
+                new_format_dirs.add(decoded[: decoded.rfind("/") + 1])
 
         total_results = 0
 
@@ -543,8 +683,6 @@ def main():
             if args.year and year != args.year:
                 continue
 
-            # 跳過不在 elections_index 且不重要的選舉類型
-            # （如鄉鎮市長、村里長等）
             if etype not in SUBJECT_ID_MAP:
                 continue
 
@@ -553,6 +691,41 @@ def main():
 
             n = process_folder(z, leaf_dir, etype, description, year,
                                index, conn, args.dry_run)
+            if n:
+                print(f"  → {n} 筆 election_results")
+            total_results += n
+
+        # ── 新格式（cand.csv + prof.csv）補選資料夾 ──────────────────────────
+        for leaf_dir in sorted(new_format_dirs):
+            parts = leaf_dir.rstrip("/").split("/")
+            leaf = parts[-1]
+            parent = parts[-2] if len(parts) > 1 else ""
+
+            # 依路徑判斷選舉類型
+            if "立委補選" in parent or "立委補選" in leaf:
+                etype, description = "legislative", "區域"
+            elif "立法委員" in leaf and ("補選" in leaf or "缺額" in leaf):
+                etype, description = "legislative", "區域"
+            elif "市長" in leaf and "鄉" not in leaf and "鎮" not in leaf:
+                etype, description = "mayoral", None
+            else:
+                continue
+
+            # 新格式資料夾：從 leaf 取年份（避免 parent 資料夾名如「立委補選(2019年後)」干擾）
+            year = extract_year(leaf) or extract_year("/".join(parts))
+            if year is None:
+                continue
+            if args.year and year != args.year:
+                continue
+
+            folder_hint = leaf
+            election_label = f"{year} {etype}（新格式）" + (f"/{description}" if description else "")
+            print(f"\n[{election_label}]  {leaf_dir}")
+
+            n = process_folder_new_format(
+                z, leaf_dir, etype, description, year,
+                index, conn, args.dry_run, folder_hint
+            )
             if n:
                 print(f"  → {n} 筆 election_results")
             total_results += n
