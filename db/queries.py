@@ -241,6 +241,22 @@ def get_party_results_by_date(date: str) -> pd.DataFrame:
         )
 
 
+def get_elected_count_by_election() -> pd.DataFrame:
+    """各選舉的當選人數"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT e.election_id,
+                   COUNT(er.result_id) AS elected_count
+            FROM elections e
+            LEFT JOIN election_results er ON er.election_id = e.election_id
+                                         AND er.elected = 1
+            GROUP BY e.election_id
+            """,
+            conn
+        )
+
+
 def get_presidential_vote_trend() -> pd.DataFrame:
     """歷屆總統選舉各候選人得票，依日期排序"""
     with get_connection() as conn:

@@ -1,5 +1,6 @@
 import streamlit as st
 from services.election_service import get_all_elections
+from db.queries import get_elected_count_by_election
 
 TYPE_ZH = {
     "presidential": "總統",
@@ -8,12 +9,18 @@ TYPE_ZH = {
     "council":      "議員",
 }
 
+
 def render():
     st.header("選舉時程")
     df = get_all_elections()
     if df.empty:
         st.info("目前尚無資料，請執行 scripts/import_votedata.py 匯入資料。")
         return
+
+    # 合併當選人數
+    counts = get_elected_count_by_election()
+    df = df.merge(counts, on="election_id", how="left")
+    df["elected_count"] = df["elected_count"].fillna(0).astype(int)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -38,8 +45,11 @@ def render():
         lambda r: f"{r['name']}（{r['description']}）" if r.get("description") else r["name"],
         axis=1
     )
+    display["當選人數"] = display["elected_count"].apply(
+        lambda v: str(v) if v > 0 else "—"
+    )
     display = display.rename(columns={"date": "投票日"})[
-        ["投票日", "類型", "選舉名稱"]
+        ["投票日", "類型", "選舉名稱", "當選人數"]
     ]
 
     st.caption(f"共 {len(display)} 筆")
