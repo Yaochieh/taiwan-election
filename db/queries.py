@@ -98,11 +98,16 @@ def get_candidates_by_election(election_id: int) -> pd.DataFrame:
         return pd.read_sql_query(
             """
             SELECT c.candidate_id, c.name, c.district, c.background, c.platform,
-                   p.name AS party_name, p.abbreviation, p.color_hex
+                   p.name AS party_name, p.abbreviation, p.color_hex,
+                   SUM(r.votes) AS votes,
+                   MAX(r.elected) AS elected
             FROM candidates c
             LEFT JOIN parties p ON c.party_id = p.party_id
+            LEFT JOIN election_results r ON r.candidate_id = c.candidate_id
+                                        AND r.election_id = c.election_id
             WHERE c.election_id = ?
-            ORDER BY c.candidate_id
+            GROUP BY c.candidate_id
+            ORDER BY votes DESC NULLS LAST, c.candidate_id
             """,
             conn, params=(election_id,)
         )
@@ -112,10 +117,14 @@ def get_candidate_by_id(candidate_id: int) -> dict | None:
     with get_connection() as conn:
         row = conn.execute(
             """
-            SELECT c.*, p.name AS party_name, p.abbreviation, p.color_hex
+            SELECT c.*, p.name AS party_name, p.abbreviation, p.color_hex,
+                   SUM(r.votes) AS votes,
+                   MAX(r.elected) AS elected
             FROM candidates c
             LEFT JOIN parties p ON c.party_id = p.party_id
+            LEFT JOIN election_results r ON r.candidate_id = c.candidate_id
             WHERE c.candidate_id = ?
+            GROUP BY c.candidate_id
             """,
             (candidate_id,)
         ).fetchone()
