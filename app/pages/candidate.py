@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from services.candidate_service import get_candidates_by_election
 from db.queries import get_all_elections
+from app.utils import clean_district
 
 
 def render():
@@ -55,7 +56,9 @@ def _render_table(df: pd.DataFrame, show_votes: bool):
         cols.append("votes")
         rename["votes"] = "得票數"
 
-    display = df[cols].rename(columns=rename)
+    display = df[cols].copy()
+    display["district"] = display["district"].apply(clean_district)
+    display = display.rename(columns=rename)
 
     if show_votes:
         display["得票數"] = display["得票數"].apply(

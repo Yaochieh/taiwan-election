@@ -192,6 +192,44 @@ def get_all_parties() -> pd.DataFrame:
         )
 
 
+def get_election_cycles_with_results() -> pd.DataFrame:
+    """各選舉週期（投票日）的摘要，只取有當選資料的"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT e.date, GROUP_CONCAT(DISTINCT e.type) AS types,
+                   COUNT(er.result_id) AS total_elected
+            FROM elections e
+            JOIN election_results er ON e.election_id = er.election_id
+            WHERE er.elected = 1
+            GROUP BY e.date
+            ORDER BY e.date DESC
+            """,
+            conn
+        )
+
+
+def get_party_results_by_date(date: str) -> pd.DataFrame:
+    """指定投票日，各政黨當選人數（跨所有選舉類型）"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT p.name AS party_name, p.color_hex,
+                   e.type AS election_type,
+                   e.description,
+                   COUNT(*) AS elected_count
+            FROM election_results er
+            JOIN candidates c ON er.candidate_id = c.candidate_id
+            JOIN elections e ON er.election_id = e.election_id
+            LEFT JOIN parties p ON c.party_id = p.party_id
+            WHERE e.date = ? AND er.elected = 1
+            GROUP BY c.party_id, e.type, e.description
+            ORDER BY e.type, elected_count DESC
+            """,
+            conn, params=(date,)
+        )
+
+
 def get_seats_by_election(election_id: int) -> pd.DataFrame:
     with get_connection() as conn:
         return pd.read_sql_query(
