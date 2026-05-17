@@ -183,6 +183,16 @@ def get_national_totals(election_id: int) -> pd.DataFrame:
         )
 
 
+def get_total_votes_by_election(election_id: int) -> int:
+    """選舉有效票總數（去重複計算）"""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT SUM(votes) FROM election_results WHERE election_id = ?",
+            (election_id,)
+        ).fetchone()
+        return int(row[0]) if row and row[0] else 0
+
+
 # ── Parties & Seats ────────────────────────────────────────────────────────────
 
 def get_all_parties() -> pd.DataFrame:

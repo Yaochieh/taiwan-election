@@ -33,7 +33,6 @@ def render():
         st.info("此週期無當選資料")
         return
 
-    # 依選舉類型分組顯示
     for etype in df["election_type"].unique():
         sub = df[df["election_type"] == etype].copy()
         desc = sub["description"].dropna().unique()
@@ -44,10 +43,14 @@ def render():
         st.subheader(section)
 
         total = sub["elected_count"].sum()
-        sub = sub[["party_name", "elected_count"]].rename(
+        sub_display = sub[["party_name", "elected_count"]].rename(
             columns={"party_name": "政黨", "elected_count": "當選人數"}
-        )
-        sub["佔比"] = (sub["當選人數"] / total * 100).map("{:.1f}%".format)
+        ).copy()
+        sub_display["佔比"] = (sub_display["當選人數"] / total * 100).map("{:.1f}%".format)
 
-        st.dataframe(sub, use_container_width=True, hide_index=True)
+        # 長條圖
+        chart_data = sub_display.set_index("政黨")["當選人數"]
+        st.bar_chart(chart_data)
+
+        st.dataframe(sub_display, use_container_width=True, hide_index=True)
         st.caption(f"合計 {total} 席")
