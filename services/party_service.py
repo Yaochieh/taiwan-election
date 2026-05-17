@@ -16,3 +16,7 @@ def get_election_cycles_with_results() -> pd.DataFrame:
 
 def get_party_results_by_date(date: str) -> pd.DataFrame:
     return queries.get_party_results_by_date(date)
+
+
+def get_party_list_votes_by_date(date: str) -> pd.DataFrame:
+    return queries.get_party_list_votes_by_date(date)

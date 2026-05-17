@@ -233,8 +233,27 @@ def get_party_results_by_date(date: str) -> pd.DataFrame:
             JOIN elections e ON er.election_id = e.election_id
             LEFT JOIN parties p ON c.party_id = p.party_id
             WHERE e.date = ? AND er.elected = 1
+              AND (e.description IS NULL OR e.description != '不分區政黨')
             GROUP BY c.party_id, e.type, e.description
             ORDER BY e.type, elected_count DESC
+            """,
+            conn, params=(date,)
+        )
+
+
+def get_party_list_votes_by_date(date: str) -> pd.DataFrame:
+    """立委不分區政黨票得票數（有資料才會有結果）"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT c.name AS party_name,
+                   er.votes,
+                   er.elected
+            FROM election_results er
+            JOIN candidates c ON er.candidate_id = c.candidate_id
+            JOIN elections e ON er.election_id = e.election_id
+            WHERE e.date = ? AND e.description = '不分區政黨'
+            ORDER BY er.votes DESC
             """,
             conn, params=(date,)
         )
