@@ -325,3 +325,44 @@ def get_seats_by_election(election_id: int) -> pd.DataFrame:
             """,
             conn, params=(election_id,)
         )
+
+
+def get_mayoral_history() -> pd.DataFrame:
+    """歷屆縣市長選舉當選結果"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT e.date, er.district, c.name AS candidate_name,
+                   p.name AS party_name, er.votes
+            FROM election_results er
+            JOIN candidates c ON er.candidate_id = c.candidate_id
+            JOIN elections e ON er.election_id = e.election_id
+            LEFT JOIN parties p ON c.party_id = p.party_id
+            WHERE e.type = 'mayoral' AND er.elected = 1
+              AND e.description IS NULL
+            ORDER BY e.date, er.votes DESC
+            """,
+            conn
+        )
+
+
+def search_candidates(query: str) -> pd.DataFrame:
+    """跨選舉搜尋候選人"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT c.name, c.district,
+                   e.date, e.name AS election_name, e.type AS election_type,
+                   p.name AS party_name,
+                   SUM(r.votes) AS votes,
+                   MAX(r.elected) AS elected
+            FROM candidates c
+            JOIN elections e ON c.election_id = e.election_id
+            LEFT JOIN parties p ON c.party_id = p.party_id
+            LEFT JOIN election_results r ON r.candidate_id = c.candidate_id AND r.election_id = c.election_id
+            WHERE c.name LIKE ?
+            GROUP BY c.candidate_id
+            ORDER BY e.date DESC
+            """,
+            conn, params=(f"%{query}%",)
+        )

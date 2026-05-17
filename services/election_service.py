@@ -20,3 +20,7 @@ def get_historical_elections() -> pd.DataFrame:
 
 def get_election(election_id: int) -> dict | None:
     return queries.get_election_by_id(election_id)
+
+
+def get_mayoral_history() -> "pd.DataFrame":
+    return queries.get_mayoral_history()
