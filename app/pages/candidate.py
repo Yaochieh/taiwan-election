@@ -13,8 +13,12 @@ def render():
         return
 
     elections_df = elections_df.sort_values("date", ascending=False)
+    def _label(row):
+        base = f"{row['date'][:4]} {row['name']}"
+        return f"{base}（{row['description']}）" if row.get("description") else base
+
     options = {
-        f"{row['date'][:4]} {row['name']}": row["election_id"]
+        _label(row): row["election_id"]
         for _, row in elections_df.iterrows()
     }
     selected_label = st.selectbox("選擇選舉", list(options.keys()))
