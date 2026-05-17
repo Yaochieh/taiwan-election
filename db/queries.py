@@ -241,6 +241,43 @@ def get_party_results_by_date(date: str) -> pd.DataFrame:
         )
 
 
+def get_presidential_vote_trend() -> pd.DataFrame:
+    """歷屆總統選舉各候選人得票，依日期排序"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT e.date, c.name AS candidate_name,
+                   p.name AS party_name,
+                   SUM(er.votes) AS votes
+            FROM election_results er
+            JOIN candidates c ON er.candidate_id = c.candidate_id
+            JOIN elections e ON er.election_id = e.election_id
+            LEFT JOIN parties p ON c.party_id = p.party_id
+            WHERE e.type = 'presidential'
+            GROUP BY e.election_id, c.candidate_id
+            ORDER BY e.date, votes DESC
+            """,
+            conn
+        )
+
+
+def get_party_list_vote_trend() -> pd.DataFrame:
+    """歷屆不分區政黨票，依日期排序"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT e.date, c.name AS party_name,
+                   er.votes, er.elected
+            FROM election_results er
+            JOIN candidates c ON er.candidate_id = c.candidate_id
+            JOIN elections e ON er.election_id = e.election_id
+            WHERE e.description = '不分區政黨'
+            ORDER BY e.date, er.votes DESC
+            """,
+            conn
+        )
+
+
 def get_party_list_votes_by_date(date: str) -> pd.DataFrame:
     """立委不分區政黨票得票數（有資料才會有結果）"""
     with get_connection() as conn:
