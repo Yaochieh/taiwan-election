@@ -347,6 +347,52 @@ def get_mayoral_history() -> pd.DataFrame:
         )
 
 
+def get_platforms_by_election(election_id: int) -> pd.DataFrame:
+    """某選舉中所有有政見的候選人，及他們的政見條目。"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT c.candidate_id, c.name AS candidate_name,
+                   p.name AS party_name, p.color_hex,
+                   pl.seq, pl.content
+            FROM platforms pl
+            JOIN candidates c ON pl.candidate_id = c.candidate_id
+            LEFT JOIN parties p ON c.party_id = p.party_id
+            WHERE pl.election_id = ?
+            ORDER BY c.candidate_id, pl.seq
+            """,
+            conn, params=(election_id,)
+        )
+
+
+def get_platform_sources(candidate_id: int, election_id: int) -> pd.DataFrame:
+    """某候選人在某場選舉的政見來源。"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT source_type, url, local_path, description, fetched_at
+            FROM platform_sources
+            WHERE candidate_id = ? AND election_id = ?
+            ORDER BY fetched_at DESC
+            """,
+            conn, params=(candidate_id, election_id)
+        )
+
+
+def get_elections_with_platforms() -> pd.DataFrame:
+    """有政見資料的選舉清單。"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT DISTINCT e.election_id, e.name, e.date, e.type, e.description
+            FROM elections e
+            JOIN platforms pl ON pl.election_id = e.election_id
+            ORDER BY e.date DESC
+            """,
+            conn
+        )
+
+
 def search_candidates(query: str) -> pd.DataFrame:
     """跨選舉搜尋候選人"""
     with get_connection() as conn:

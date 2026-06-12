@@ -15,7 +15,8 @@ st.caption("希望台灣政治正在往好的路上走")
 
 page = st.sidebar.selectbox(
     "選擇頁面",
-    ["選舉時程", "政黨席次", "候選人查詢", "縣市長歷屆結果", "選舉地圖", "趨勢分析"]
+    ["選舉時程", "政黨席次", "候選人查詢", "候選人政見",
+     "縣市長歷屆結果", "選舉地圖", "趨勢分析"]
 )
 
 if page == "選舉時程":
@@ -26,6 +27,9 @@ elif page == "政黨席次":
     render()
 elif page == "候選人查詢":
     from app.pages.candidate import render
+    render()
+elif page == "候選人政見":
+    from app.pages.platforms import render
     render()
 elif page == "縣市長歷屆結果":
     from app.pages.mayors import render
