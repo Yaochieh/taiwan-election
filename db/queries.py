@@ -380,16 +380,72 @@ def get_platform_sources(candidate_id: int, election_id: int) -> pd.DataFrame:
 
 
 def get_elections_with_platforms() -> pd.DataFrame:
-    """有政見資料的選舉清單。"""
+    """有政見資料或有政見來源紀錄的選舉清單。"""
     with get_connection() as conn:
         return pd.read_sql_query(
             """
             SELECT DISTINCT e.election_id, e.name, e.date, e.type, e.description
             FROM elections e
-            JOIN platforms pl ON pl.election_id = e.election_id
+            WHERE e.election_id IN (
+                SELECT election_id FROM platforms
+                UNION
+                SELECT election_id FROM platform_sources
+            )
             ORDER BY e.date DESC
             """,
             conn
+        )
+
+
+def get_candidates_with_platform_status(election_id: int, district: str | None = None) -> pd.DataFrame:
+    """某選舉所有候選人，含政見條數與來源資訊。
+    用於政見頁面顯示——包含未繳交政見的候選人。
+    """
+    with get_connection() as conn:
+        if district:
+            q = """
+                SELECT c.candidate_id, c.name AS candidate_name,
+                       p.name AS party_name, p.color_hex,
+                       er.district, er.votes, er.elected,
+                       (SELECT COUNT(*) FROM platforms pl
+                        WHERE pl.candidate_id = c.candidate_id AND pl.election_id = ?) AS platform_count
+                FROM candidates c
+                JOIN election_results er
+                    ON er.candidate_id = c.candidate_id AND er.election_id = c.election_id
+                LEFT JOIN parties p ON c.party_id = p.party_id
+                WHERE c.election_id = ? AND er.district = ?
+                ORDER BY er.elected DESC, er.votes DESC
+            """
+            params = (election_id, election_id, district)
+        else:
+            q = """
+                SELECT c.candidate_id, c.name AS candidate_name,
+                       p.name AS party_name, p.color_hex,
+                       er.district, er.votes, er.elected,
+                       (SELECT COUNT(*) FROM platforms pl
+                        WHERE pl.candidate_id = c.candidate_id AND pl.election_id = ?) AS platform_count
+                FROM candidates c
+                JOIN election_results er
+                    ON er.candidate_id = c.candidate_id AND er.election_id = c.election_id
+                LEFT JOIN parties p ON c.party_id = p.party_id
+                WHERE c.election_id = ?
+                GROUP BY c.candidate_id
+                ORDER BY er.elected DESC, er.votes DESC
+            """
+            params = (election_id, election_id)
+        return pd.read_sql_query(q, conn, params=params)
+
+
+def get_districts_for_election(election_id: int) -> pd.DataFrame:
+    """某選舉的所有選區清單。"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT DISTINCT district FROM election_results
+            WHERE election_id = ?
+            ORDER BY district
+            """,
+            conn, params=(election_id,)
         )
 
 

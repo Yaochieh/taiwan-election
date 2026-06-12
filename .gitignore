@@ -8,6 +8,7 @@ venv/
 *.sqlite-shm
 *.sqlite-wal
 *.db
+!data/db.sqlite
 .DS_Store
 .streamlit/secrets.toml
 data/downloads/

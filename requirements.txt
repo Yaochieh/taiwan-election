@@ -9,3 +9,5 @@ httpx
 beautifulsoup4
 matplotlib
 plotly
+pdfplumber
+PyMuPDF

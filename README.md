@@ -39,6 +39,22 @@ Swagger UI：http://localhost:8000/docs
 
 ---
 
+## 部署到 Streamlit Cloud
+
+1. 到 https://share.streamlit.io 用 GitHub 登入
+2. 點 **New app**
+3. 填入：
+   - Repository: `Yaochieh/taiwan-election`
+   - Branch: `main`
+   - Main file path: `app/main.py`
+4. 點 **Deploy**
+5. 等 2-5 分鐘完成（依套件安裝速度）
+
+DB 檔案 `data/db.sqlite` 已隨 repo 部署，無需額外設定。
+若要更新部署上的資料，本地跑匯入腳本後 commit `data/db.sqlite` 即可。
+
+---
+
 ## 資料匯入流程
 
 資料庫檔案 `data/db.sqlite` 已隨專案附上，可直接啟動。若需重建：

@@ -173,19 +173,20 @@ def import_pdf(pdf_path: Path, election_id: int, source_url: str | None = None,
                 """, (candidate_id, election_id, seq, content))
                 imported_platforms += 1
 
-            # 紀錄來源
-            if items:
-                conn.execute("""
-                    INSERT INTO platform_sources
-                        (candidate_id, election_id, source_type, url, local_path, description, fetched_at)
-                    VALUES (?, ?, 'cec_bulletin', ?, ?, ?, datetime('now'))
-                """, (
-                    candidate_id, election_id,
-                    source_url,
-                    str(pdf_path.resolve().relative_to(ROOT)),
-                    f"中選會選舉公報",
-                ))
-                imported_sources += 1
+            # 紀錄來源（不論政見是否空白都要記）
+            submitted = len(items) > 0
+            desc = "中選會選舉公報" if submitted else "中選會選舉公報（候選人未刊登政見）"
+            conn.execute("""
+                INSERT INTO platform_sources
+                    (candidate_id, election_id, source_type, url, local_path, description, fetched_at)
+                VALUES (?, ?, 'cec_bulletin', ?, ?, ?, datetime('now'))
+            """, (
+                candidate_id, election_id,
+                source_url,
+                str(pdf_path.resolve().relative_to(ROOT)),
+                desc,
+            ))
+            imported_sources += 1
 
         if not dry_run:
             conn.commit()

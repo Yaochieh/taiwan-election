@@ -50,36 +50,39 @@ def find_candidate_names_via_db(election_id: int, district: str | None = None) -
 def find_name_anchors(page, names: list[str]) -> dict[str, tuple]:
     """在 page 中找每位候選人姓名的位置。
 
-    候選人姓名通常是 PDF 標題級的文字（大字、單獨一個 block）。
-    若姓名沒整字、被拆成單字字符（直式版面），fallback 用 search_for 找連續字串。
+    優先找短 block (≤30 字) 含姓名（標題級）；找不到才用 search_for 搜尋字串。
     """
     blocks = page.get_text("blocks")
     anchors = {}
 
     for name in names:
-        # 先找完整字串在某個 block 中
+        # Strategy 1: 找短 block 含姓名
+        found = None
         for b in blocks:
             text = b[4]
-            if name in text and len(text) < 30:
-                # 短 block 含完整姓名 = 姓名位置
-                x0, y0, x1, y1 = b[:4]
-                anchors[name] = (x0, y0, x1, y1)
+            if name in text and len(text.strip()) < 30:
+                found = b[:4]
                 break
-        else:
-            # search_for 找姓名（可能跨多個小 block）
+
+        # Strategy 2: fallback 用 search_for（適合單字垂直排列的版面）
+        if not found:
             rects = page.search_for(name)
             if rects:
                 r = rects[0]
-                anchors[name] = (r.x0, r.y0, r.x1, r.y1)
+                found = (r.x0, r.y0, r.x1, r.y1)
+
+        if found:
+            anchors[name] = found
     return anchors
 
 
 def find_politics_block(page, name_anchor: tuple, all_anchors_y: list[float],
-                       min_text_len: int = 80) -> str:
+                       min_text_len: int = 80, max_distance: float = 600) -> str:
     """找姓名下方、長度最長的 block，視為政見。
 
     限制：
       - block 起始 y > 姓名 y + 50（在姓名下方）
+      - block 起始 y - 姓名 y <= max_distance（不抓到頁面下半的其他候選人區）
       - block X 與姓名 X 重疊（同一欄）
       - block 文字長度 >= min_text_len（過濾學歷/經歷小 block）
       - block y 不超過下一個候選人錨點的 y
@@ -89,8 +92,9 @@ def find_politics_block(page, name_anchor: tuple, all_anchors_y: list[float],
     # 算出該 column 在 y 軸的下界（下一位候選人的 y，如果在同一頁）
     next_y = min(
         (y for y in all_anchors_y if y > ny0 + 200),
-        default=page.rect.height,
+        default=ny0 + max_distance,
     )
+    upper_bound = min(next_y, ny0 + max_distance)
 
     blocks = page.get_text("blocks")
     candidates_blocks = []
@@ -99,30 +103,42 @@ def find_politics_block(page, name_anchor: tuple, all_anchors_y: list[float],
         text = text.strip()
         if not text or len(text) < min_text_len:
             continue
-        # 要在姓名下方
-        if y0 < ny0 + 30:
-            continue
         # 同欄（X 軸重疊）— 寬鬆 80px
         if x1 < nx0 - 80 or x0 > nx1 + 80:
             continue
-        # 不超過下個候選人
-        if y0 > next_y:
+        # 政見 block 結尾必須在姓名下方一段距離（允許 block 起始略早，但結尾必須足夠下方）
+        if y1 < ny0 + 100:
+            continue
+        # block 起始 y 不超過下個候選人或最大距離
+        if y0 > upper_bound:
+            continue
+        # 排除「跨候選人」的大 block：高度不能太大
+        if y1 - y0 > 800:
+            continue
+        # 政見 block 距姓名 y 不能太遠（避免抓到頁面其他區域候選人的 block）
+        if y0 > ny0 + 450:
             continue
         candidates_blocks.append((y0, len(text), text))
 
     if not candidates_blocks:
         return ""
-    # 取第一個（最靠近姓名下方的）長 block 作為政見
-    candidates_blocks.sort(key=lambda x: x[0])
+    # 取最靠近姓名（y 最接近）的長 block 作為政見
+    candidates_blocks.sort(key=lambda x: abs(x[0] - ny0))
     return candidates_blocks[0][2]
 
 
-def parse_pdf(pdf_path: Path, names: list[str]) -> list[dict]:
-    """掃描整個 PDF，對每位候選人找政見 block。"""
+def parse_pdf(pdf_path: Path, names: list[str], max_pages: int = 1) -> list[dict]:
+    """掃描 PDF 前 max_pages 頁，對每位候選人找政見 block。
+
+    直轄市長公報的候選人資訊通常都在第 1 頁；後面頁面是議員。
+    限制 max_pages=1 可避免誤抓到議員候選人的政見。
+    """
     doc = fitz.open(pdf_path)
     results = {n: "" for n in names}
 
-    for page in doc:
+    pages_to_scan = min(doc.page_count, max_pages)
+    for p_idx in range(pages_to_scan):
+        page = doc[p_idx]
         anchors = find_name_anchors(page, names)
         all_y = [v[1] for v in anchors.values()]
         for name, anchor in anchors.items():
