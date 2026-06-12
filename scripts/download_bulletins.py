@@ -142,6 +142,7 @@ def download(record: dict, out_dir: Path) -> bool:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--filter", help="只下載含此關鍵字的子目錄（如「直轄市長」）")
+    parser.add_argument("--year", help="只下載含此民國年的檔案，如 113")
     parser.add_argument("--dry-run", action="store_true", help="只列檔案不下載")
     args = parser.parse_args()
 
@@ -152,6 +153,12 @@ def main():
     # 補上 metadata
     for r in records:
         r["metadata"] = parse_metadata(r["path"])
+
+    # --year 篩選
+    if args.year:
+        records = [r for r in records
+                   if f"{args.year}年" in r["path"]]
+        print(f"   過濾年份 {args.year}：{len(records)} 個 PDF")
 
     if args.dry_run:
         for r in records[:20]:

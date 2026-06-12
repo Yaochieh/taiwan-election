@@ -93,9 +93,10 @@ def parse_block(page, blk) -> dict:
     all_words = words_in(page, blk["bbox"])
 
     # ── 找個人資料標籤位置（block 內 x < pol_x）──
+    # 縣市長公報用「個人資料」，立委公報用「基本資料」
     personal_label = None
     for w in all_words:
-        if w["text"] == "個人資料" and w["x0"] < pol_x:
+        if w["text"] in ("個人資料", "基本資料") and w["x0"] < pol_x:
             personal_label = w
             break
     personal_x_end = (personal_label["x0"] + 120) if personal_label else (x0 + (x1 - x0) * 0.25)
@@ -119,14 +120,17 @@ def parse_block(page, blk) -> dict:
     personal_words = [
         w for w in lower_words
         if w["x0"] <= personal_x_end
-        and w["text"] not in ("個人資料",)
+        and w["text"] not in ("個人資料", "基本資料")
     ]
     personal_text = join_lines(personal_words)
 
     # ── 上半部找學歷/經歷標題位置 ──
     edu_label = next((w for w in upper_words if w["text"] == "學歷"), None)
     exp_label = next((w for w in upper_words if w["text"] == "經歷"), None)
+    # 縣市長公報「號次·姓名」一個 word；立委公報「號次」「姓名」分開
     name_label = next((w for w in upper_words if w["text"] == "號次·姓名"), None)
+    if not name_label:
+        name_label = next((w for w in upper_words if w["text"] == "號次"), None)
 
     cand_num = None
     name = ""
