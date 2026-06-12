@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 
 from db.queries import get_connection
 from scripts.parse_bulletin import parse_pdf
+from scripts.parse_bulletin_v2 import parse_pdf as parse_pdf_v2, find_candidate_names_via_db
 
 DB_PATH = ROOT / "data" / "db.sqlite"
 
@@ -98,8 +99,26 @@ def split_into_items(politics: str) -> list[str]:
 
 
 def import_pdf(pdf_path: Path, election_id: int, source_url: str | None = None,
-               dry_run: bool = False):
-    candidates = parse_pdf(pdf_path)
+               dry_run: bool = False, district: str | None = None,
+               parser: str = "v1"):
+    """parser='v1' 用 pdfplumber 座標式（台北市公報專用）
+       parser='v2' 用 PyMuPDF blocks（其他直轄市公報）"""
+    if parser == "v2":
+        names = find_candidate_names_via_db(election_id, district)
+        v2_results = parse_pdf_v2(pdf_path, names)
+        # 包裝成 v1 相容格式
+        candidates = [
+            {
+                "name": r["name"],
+                "politics": r["politics"],
+                "education": "",
+                "experience": "",
+                "cand_num": None,
+            }
+            for r in v2_results
+        ]
+    else:
+        candidates = parse_pdf(pdf_path)
     print(f"📋 解析 {pdf_path.name}：{len(candidates)} 位候選人")
 
     with get_connection() as conn:
@@ -189,6 +208,8 @@ def main():
     ap.add_argument("--election-id", type=int, help="DB 中對應的 election_id")
     ap.add_argument("--source-url", help="公報原始下載 URL")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--district", help="僅匹配此 district 的候選人（v2 parser 用）")
+    ap.add_argument("--parser", choices=["v1", "v2"], default="v1")
     args = ap.parse_args()
 
     if not args.pdf or not args.election_id:
@@ -199,7 +220,8 @@ def main():
         print(f"找不到 PDF：{pdf_path}", file=sys.stderr)
         sys.exit(1)
 
-    import_pdf(pdf_path, args.election_id, args.source_url, args.dry_run)
+    import_pdf(pdf_path, args.election_id, args.source_url, args.dry_run,
+               district=args.district, parser=args.parser)
 
 
 if __name__ == "__main__":
