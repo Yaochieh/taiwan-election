@@ -12,3 +12,6 @@ venv/
 .streamlit/secrets.toml
 data/downloads/
 data/*.zip
+data/bulletins/01*/
+data/bulletins/02*/
+data/bulletins/03*/
