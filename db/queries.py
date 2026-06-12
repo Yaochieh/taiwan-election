@@ -328,6 +328,149 @@ def get_seats_by_election(election_id: int) -> pd.DataFrame:
         )
 
 
+def get_legislative_seats(year: str) -> dict:
+    """回傳指定年份立法院席次組成。
+    113 席 = 73 區域 + 3 山地原住民 + 3 平地原住民 + 34 不分區（Hare quota）
+    """
+    import math
+    with get_connection() as conn:
+        # 找到該年的選舉 ID
+        elections = conn.execute("""
+            SELECT election_id, description FROM elections
+            WHERE type = 'legislative' AND date LIKE ?
+        """, (f"{year}%",)).fetchall()
+        if not elections:
+            return {"parties": [], "members": []}
+
+        ids = {e["description"]: e["election_id"] for e in elections}
+
+        results = {
+            "regional": [],     # 73
+            "highland": [],     # 3
+            "lowland": [],      # 3
+            "party_list": [],   # 34
+        }
+
+        # ── 1. 區域立委：每選區 elected=1 一名 ──
+        if "區域" in ids:
+            rows = conn.execute("""
+                SELECT er.district, c.name, p.name as party, p.color_hex, er.votes
+                FROM election_results er
+                JOIN candidates c ON er.candidate_id = c.candidate_id
+                LEFT JOIN parties p ON c.party_id = p.party_id
+                WHERE er.election_id = ? AND er.elected = 1
+            """, (ids["區域"],)).fetchall()
+            for r in rows:
+                results["regional"].append({
+                    "kind": "regional",
+                    "district": r["district"],
+                    "candidate": r["name"],
+                    "party": r["party"] or "無黨籍",
+                    "color_hex": r["color_hex"],
+                    "votes": r["votes"],
+                })
+
+        # ── 2. 山地原住民：取前 3 高票 ──
+        for kind, key, eid_key in [("highland", "山地原住民", "山地原住民"),
+                                    ("lowland", "平地原住民", "平地原住民")]:
+            eid = ids.get(eid_key)
+            if not eid:
+                continue
+            rows = conn.execute("""
+                SELECT c.name, p.name as party, p.color_hex, er.votes
+                FROM election_results er
+                JOIN candidates c ON er.candidate_id = c.candidate_id
+                LEFT JOIN parties p ON c.party_id = p.party_id
+                WHERE er.election_id = ?
+                ORDER BY er.votes DESC LIMIT 3
+            """, (eid,)).fetchall()
+            for r in rows:
+                results[kind].append({
+                    "kind": kind,
+                    "district": "全國",
+                    "candidate": r["name"],
+                    "party": r["party"] or "無黨籍",
+                    "color_hex": r["color_hex"],
+                    "votes": r["votes"],
+                })
+
+        # ── 3. 不分區：Hare quota 計算 34 席 ──
+        if "不分區政黨" in ids:
+            rows = conn.execute("""
+                SELECT c.name as party, p.color_hex, er.votes
+                FROM election_results er
+                JOIN candidates c ON er.candidate_id = c.candidate_id
+                LEFT JOIN parties p ON p.name = c.name
+                WHERE er.election_id = ?
+                ORDER BY er.votes DESC
+            """, (ids["不分區政黨"],)).fetchall()
+
+            total_seats = 34
+            threshold = 0.05
+            total_votes = sum(r["votes"] for r in rows)
+            # 過門檻政黨
+            qualifying = [r for r in rows if r["votes"] >= total_votes * threshold]
+            qual_votes = sum(r["votes"] for r in qualifying)
+
+            if qual_votes > 0:
+                quota = qual_votes / total_seats
+                seats_dict = {}
+                remainders = {}
+                for r in qualifying:
+                    base = math.floor(r["votes"] / quota)
+                    seats_dict[r["party"]] = base
+                    remainders[r["party"]] = (r["votes"] / quota) - base
+
+                # 用最大餘數法分配剩餘席次
+                remaining = total_seats - sum(seats_dict.values())
+                sorted_parties = sorted(remainders.items(), key=lambda x: -x[1])
+                for i in range(remaining):
+                    party = sorted_parties[i % len(sorted_parties)][0]
+                    seats_dict[party] = seats_dict.get(party, 0) + 1
+
+                for party, seats in seats_dict.items():
+                    color = next((r["color_hex"] for r in rows if r["party"] == party), None)
+                    for i in range(seats):
+                        results["party_list"].append({
+                            "kind": "party_list",
+                            "district": "不分區",
+                            "candidate": f"({party} 第 {i+1} 順位)",
+                            "party": party,
+                            "color_hex": color,
+                            "votes": 0,
+                        })
+
+        # ── 整合：合併所有 113 席 ──
+        all_members = (results["regional"] + results["highland"] +
+                       results["lowland"] + results["party_list"])
+
+        # 計算各黨總席次
+        party_counts = {}
+        for m in all_members:
+            p = m["party"]
+            if p not in party_counts:
+                party_counts[p] = {
+                    "name": p, "color_hex": m["color_hex"],
+                    "regional": 0, "aboriginal": 0, "party_list": 0, "total": 0,
+                }
+            if m["kind"] == "regional":
+                party_counts[p]["regional"] += 1
+            elif m["kind"] in ("highland", "lowland"):
+                party_counts[p]["aboriginal"] += 1
+            elif m["kind"] == "party_list":
+                party_counts[p]["party_list"] += 1
+            party_counts[p]["total"] += 1
+
+        parties = sorted(party_counts.values(), key=lambda p: -p["total"])
+
+        return {
+            "year": year,
+            "total_seats": len(all_members),
+            "parties": parties,
+            "members": all_members,
+        }
+
+
 def get_mayoral_history() -> pd.DataFrame:
     """歷屆縣市長選舉當選結果"""
     with get_connection() as conn:

@@ -11,3 +11,5 @@ def mayoral_history():
     """歷屆縣市長當選結果"""
     df = queries.get_mayoral_history()
     return df_to_records(df)
+
+
