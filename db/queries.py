@@ -582,11 +582,14 @@ def get_candidates_with_platform_status(election_id: int, district: str | None =
 
 
 def get_platform_images(candidate_id: int, election_id: int) -> pd.DataFrame:
-    """某候選人的圖片版政見。"""
+    """某候選人的圖片版政見（含 OCR 文字）。"""
     with get_connection() as conn:
+        # 容錯：ocr_text 欄位可能還不存在
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(platform_sources)")]
+        ocr_col = ", ocr_text" if "ocr_text" in cols else ", NULL as ocr_text"
         return pd.read_sql_query(
-            """
-            SELECT local_path, url, description
+            f"""
+            SELECT local_path, url, description{ocr_col}
             FROM platform_sources
             WHERE candidate_id = ? AND election_id = ? AND source_type = 'image_platform'
             ORDER BY source_id

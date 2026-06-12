@@ -136,6 +136,7 @@ class PlatformImage(BaseModel):
     local_path: str
     url: str | None = None
     description: str | None = None
+    ocr_text: str | None = None
 
 
 class CandidatePlatformStatus(BaseModel):
