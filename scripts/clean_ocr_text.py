@@ -111,19 +111,24 @@ def clean_ocr(text: str) -> str:
         line = re.sub(r"([。！？])(?=\S)", r"\1 ", line)
         cleaned.append(line.strip())
 
-    # 4. 移除結尾的孤立數字殘留（PDF 切片產物）
+    # 4. 移除結尾的「明確雜訊」數字殘留：純單數字（≤2 字）+ 編號（含 .、）
+    # 不移除有意義的數字範圍（如「0-6」）或多位數（如「2025」「1000」）
     while cleaned:
         last = cleaned[-1].strip()
-        # 純數字或範圍/短編號（如 0-6, 1212, 41000, 1.）
-        if re.match(r"^[\d\s\-－—.、]+$", last) and len(last) <= 8:
+        # 只清純 1-2 位數字或純編號樣式（"1." "2、"）
+        if (re.match(r"^\d{1,2}$", last)
+                or re.match(r"^\d{1,2}[.、]$", last)
+                or re.match(r"^[\s.、]+$", last)):
             cleaned.pop()
         else:
             break
 
-    # 5. 移除開頭的孤立數字殘留（同理）
+    # 5. 同理移除開頭的雜訊
     while cleaned:
         first = cleaned[0].strip()
-        if re.match(r"^[\d\s\-－—.、]+$", first) and len(first) <= 8:
+        if (re.match(r"^\d{1,2}$", first)
+                or re.match(r"^\d{1,2}[.、]$", first)
+                or re.match(r"^[\s.、]+$", first)):
             cleaned.pop(0)
         else:
             break

@@ -80,7 +80,7 @@ def split_into_items(politics: str) -> list[str]:
             if content:
                 result.append(content)
         if len(result) >= 2:
-            return result
+            return _shift_orphan_numbers(result)
 
     # 中文數字 "一、" 分割
     cn_nums = "一二三四五六七八九十"
@@ -92,10 +92,52 @@ def split_into_items(politics: str) -> list[str]:
             if content:
                 result.append(content)
         if len(result) >= 2:
-            return result
+            return _shift_orphan_numbers(result)
 
     # 都沒分到，當作整段政見
     return [text]
+
+
+def _shift_orphan_numbers(items: list[str]) -> list[str]:
+    """把每條結尾的孤立數字（被 PDF 切散的編號或範圍）轉移到下一條開頭。
+
+    例如：
+      原 [
+        "...重建親民服務的市政府。\n0-6",
+        "「歲小孩國家養」；...",
+      ]
+      → [
+        "...重建親民服務的市政府。",
+        "0-6 「歲小孩國家養」；...",
+      ]
+
+    處理規則：
+      - 結尾若為一行純數字 / 範圍 / 短編號（≤8 字），且包含至少一個數字
+      - 從本條移除，加上空白後黏到下一條開頭
+      - 連續多行孤立數字都會被搬走
+    """
+    # 從尾巴往前移、再往下推
+    for i in range(len(items) - 1):
+        cur = items[i].rstrip()
+        moved_parts: list[str] = []
+
+        while True:
+            m = re.search(r"\n([\d\-－—\s.、]{1,10})\s*$", cur)
+            if not m:
+                break
+            tail = m.group(1).strip()
+            # 必須包含數字，且不能是純標點
+            if not re.search(r"\d", tail):
+                break
+            # 移除尾巴
+            cur = cur[: m.start()].rstrip()
+            moved_parts.insert(0, tail)
+
+        if moved_parts:
+            items[i] = cur
+            prefix = " ".join(moved_parts).strip()
+            items[i + 1] = (prefix + " " + items[i + 1]).strip()
+    return items
 
 
 def import_pdf(pdf_path: Path, election_id: int, source_url: str | None = None,
