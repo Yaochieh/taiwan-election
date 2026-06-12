@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
+from api.utils import df_to_records
 from db import queries
 from models import (
     Election,
@@ -15,7 +16,7 @@ router = APIRouter()
 def list_elections_with_platforms():
     """列出有政見資料的選舉清單"""
     df = queries.get_elections_with_platforms()
-    return df.to_dict(orient="records")
+    return df_to_records(df)
 
 
 @router.get("/elections/{election_id}", response_model=list[Platform])
@@ -24,7 +25,7 @@ def list_platforms_by_election(election_id: int):
     df = queries.get_platforms_by_election(election_id)
     if df.empty:
         return []
-    return df.to_dict(orient="records")
+    return df_to_records(df)
 
 
 @router.get("/elections/{election_id}/candidates-status",
@@ -37,7 +38,7 @@ def list_candidates_with_status(
     df = queries.get_candidates_with_platform_status(election_id, district)
     if df.empty:
         return []
-    return df.to_dict(orient="records")
+    return df_to_records(df)
 
 
 @router.get("/candidates/{candidate_id}",
@@ -48,7 +49,7 @@ def get_candidate_platforms(candidate_id: int, election_id: int = Query(...)):
     if df.empty:
         return []
     df = df[df["candidate_id"] == candidate_id]
-    return df.to_dict(orient="records")
+    return df_to_records(df)
 
 
 @router.get("/candidates/{candidate_id}/sources",
@@ -56,7 +57,7 @@ def get_candidate_platforms(candidate_id: int, election_id: int = Query(...)):
 def get_candidate_platform_sources(candidate_id: int, election_id: int = Query(...)):
     """某候選人的政見來源紀錄（公報 PDF URL 等）"""
     df = queries.get_platform_sources(candidate_id, election_id)
-    return df.to_dict(orient="records")
+    return df_to_records(df)
 
 
 @router.get("/candidates/{candidate_id}/images",
@@ -64,4 +65,4 @@ def get_candidate_platform_sources(candidate_id: int, election_id: int = Query(.
 def get_candidate_platform_images(candidate_id: int, election_id: int = Query(...)):
     """某候選人的圖片版政見（檔案路徑）"""
     df = queries.get_platform_images(candidate_id, election_id)
-    return df.to_dict(orient="records")
+    return df_to_records(df)

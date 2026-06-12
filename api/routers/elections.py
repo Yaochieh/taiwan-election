@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
+from api.utils import df_to_records
 from typing import Literal
 from db import queries
 from models import (
@@ -22,21 +23,21 @@ def list_elections(
         df = queries.get_elections_by_status(status)
     else:
         df = queries.get_all_elections()
-    return df.to_dict(orient="records")
+    return df_to_records(df)
 
 
 @router.get("/cycles", response_model=list[ElectionCycle])
 def list_election_cycles():
     """各投票日週期摘要（候選人總數等）"""
     df = queries.get_election_cycles_with_results()
-    return df.to_dict(orient="records")
+    return df_to_records(df)
 
 
 @router.get("/elected-counts", response_model=list[ElectedCount])
 def list_elected_counts():
     """所有選舉的當選人數"""
     df = queries.get_elected_count_by_election()
-    return df.to_dict(orient="records")
+    return df_to_records(df)
 
 
 @router.get("/{election_id}", response_model=Election)
@@ -52,7 +53,7 @@ def get_election(election_id: int):
 def get_election_districts(election_id: int):
     """某選舉的所有選區"""
     df = queries.get_districts_for_election(election_id)
-    return df.to_dict(orient="records")
+    return df_to_records(df)
 
 
 @router.get("/{election_id}/results", response_model=list[ElectionResult])
@@ -62,14 +63,14 @@ def get_results(
 ):
     """某選舉所有結果（含每位候選人得票與當選旗標）"""
     df = queries.get_results_by_election(election_id, district)
-    return df.to_dict(orient="records")
+    return df_to_records(df)
 
 
 @router.get("/{election_id}/totals", response_model=list[NationalTotal])
 def get_national_totals(election_id: int):
     """某選舉各候選人的全國得票加總"""
     df = queries.get_national_totals(election_id)
-    return df.to_dict(orient="records")
+    return df_to_records(df)
 
 
 @router.get("/{election_id}/total-votes")
