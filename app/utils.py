@@ -55,10 +55,17 @@ TOWNSHIP_TO_COUNTY = {
 }
 
 
-def clean_district(district: str | None) -> str | None:
+def clean_district(district) -> str | None:
     """將 '地區(X, 0, 0)' 格式或鄉鎮市區名稱轉成縣市中文名稱"""
-    if not district:
-        return district
+    if district is None:
+        return None
+    # pandas + pyarrow 後端可能傳入 pa.Scalar 或 NaN，統一轉成 str
+    try:
+        district = str(district)
+    except Exception:
+        return None
+    if not district or district in ("nan", "None", "<NA>"):
+        return None
     m = re.match(r"地區\((\d+),\s*0,\s*0\)", district)
     if m:
         code = int(m.group(1))
