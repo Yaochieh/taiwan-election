@@ -384,7 +384,7 @@ def get_elections_with_platforms() -> pd.DataFrame:
     with get_connection() as conn:
         return pd.read_sql_query(
             """
-            SELECT DISTINCT e.election_id, e.name, e.date, e.type, e.description
+            SELECT DISTINCT e.election_id, e.name, e.date, e.type, e.status, e.description
             FROM elections e
             WHERE e.election_id IN (
                 SELECT election_id FROM platforms

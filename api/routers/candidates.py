@@ -1,41 +1,32 @@
 from fastapi import APIRouter, HTTPException, Query
-from services import candidate_service
+from db import queries
+from models import (
+    Candidate,
+    CandidateDetail,
+    CandidateSearchResult,
+)
 
 router = APIRouter()
 
 
-@router.get("")
-def list_candidates(
-    election_id: int = Query(..., description="選舉 ID"),
-):
-    df = candidate_service.get_candidates_by_election(election_id)
-    if df.empty:
-        raise HTTPException(status_code=404, detail="查無候選人資料")
+@router.get("", response_model=list[Candidate])
+def list_candidates(election_id: int = Query(..., description="選舉 ID")):
+    """某選舉的候選人清單"""
+    df = queries.get_candidates_by_election(election_id)
     return df.to_dict(orient="records")
 
 
-@router.get("/{candidate_id}")
+@router.get("/search", response_model=list[CandidateSearchResult])
+def search_candidates(q: str = Query(..., min_length=1, description="候選人姓名（支援部分比對）")):
+    """跨選舉搜尋候選人"""
+    df = queries.search_candidates(q)
+    return df.to_dict(orient="records")
+
+
+@router.get("/{candidate_id}", response_model=CandidateDetail)
 def get_candidate(candidate_id: int):
-    candidate = candidate_service.get_candidate_detail(candidate_id)
+    """單一候選人詳情"""
+    candidate = queries.get_candidate_by_id(candidate_id)
     if not candidate:
         raise HTTPException(status_code=404, detail="候選人不存在")
     return candidate
-
-
-@router.get("/results/{election_id}")
-def get_results(
-    election_id: int,
-    district: str | None = Query(None, description="篩選縣市/選區"),
-):
-    df = candidate_service.get_results_by_election(election_id, district)
-    if df.empty:
-        raise HTTPException(status_code=404, detail="查無選舉結果")
-    return df.to_dict(orient="records")
-
-
-@router.get("/totals/{election_id}")
-def get_national_totals(election_id: int):
-    df = candidate_service.get_national_totals(election_id)
-    if df.empty:
-        raise HTTPException(status_code=404, detail="查無全國統計")
-    return df.to_dict(orient="records")

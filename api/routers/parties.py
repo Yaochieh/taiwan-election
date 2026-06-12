@@ -1,18 +1,33 @@
-from fastapi import APIRouter, HTTPException, Query
-from services import party_service
+from fastapi import APIRouter, Query
+from db import queries
+from models import Party, PartySeat, PartyByDate, PartyListVote
 
 router = APIRouter()
 
 
-@router.get("")
+@router.get("", response_model=list[Party])
 def list_parties():
-    df = party_service.get_all_parties()
+    """所有政黨"""
+    df = queries.get_all_parties()
     return df.to_dict(orient="records")
 
 
-@router.get("/seats")
+@router.get("/seats", response_model=list[PartySeat])
 def get_seats(election_id: int = Query(..., description="選舉 ID")):
-    df = party_service.get_seats_by_election(election_id)
-    if df.empty:
-        raise HTTPException(status_code=404, detail="查無席次資料")
+    """某選舉的政黨席次"""
+    df = queries.get_seats_by_election(election_id)
+    return df.to_dict(orient="records")
+
+
+@router.get("/results-by-date", response_model=list[PartyByDate])
+def get_party_results_by_date(date: str = Query(..., description="投票日 YYYY-MM-DD")):
+    """某投票日各政黨當選人數（跨所有選舉類型）"""
+    df = queries.get_party_results_by_date(date)
+    return df.to_dict(orient="records")
+
+
+@router.get("/party-list-votes", response_model=list[PartyListVote])
+def get_party_list_votes(date: str = Query(..., description="投票日 YYYY-MM-DD")):
+    """立委不分區政黨票得票數"""
+    df = queries.get_party_list_votes_by_date(date)
     return df.to_dict(orient="records")
