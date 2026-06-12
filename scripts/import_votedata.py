@@ -557,12 +557,16 @@ def process_folder(z: zipfile.ZipFile, leaf_dir: str,
     total_rows = 0
     elected_by_area: dict[tuple, int] = {}  # area_key → winning cand_num（SMD 適用）
 
-    # council 選舉不設 elected 旗標（SNTV multi-member，需要更多資訊）
     # 不分區政黨由 compute_party_list_seats.py 另行計算（比例代表制）
-    compute_elected = etype != "council" and description != "不分區政黨"
+    compute_elected = description != "不分區政黨"
 
-    # 找出每個地區的當選者（票數最多者，SMD 邏輯）
-    if compute_elected:
+    # council 用 elcand.csv 的 * 旗標決定當選（SNTV multi-member，不能用最高票邏輯）
+    council_elected_names: set[str] = set()
+    if etype == "council":
+        council_elected_names = {c["name"] for c in candidates if c.get("elected")}
+
+    # 找出每個地區的當選者（票數最多者，SMD 邏輯，非 council 用）
+    if compute_elected and etype != "council":
         for area_key, cand_votes in county_votes.items():
             if not cand_votes:
                 continue
@@ -633,7 +637,12 @@ def process_folder(z: zipfile.ZipFile, leaf_dir: str,
                     matched_cids.append(cid)
 
             for cid in matched_cids:
-                is_elected = compute_elected and (cand_num == winner)
+                if etype == "council":
+                    # SNTV：用 elcand.csv 的 * 旗標
+                    cand_name = next((c["name"] for c in candidates if c["cand_num"] == cand_num), None)
+                    is_elected = cand_name in council_elected_names if cand_name else False
+                else:
+                    is_elected = compute_elected and (cand_num == winner)
                 upsert_result(conn, election_id, cid, district, votes, is_elected)
                 total_rows += 1
 
