@@ -8,3 +8,4 @@ requests
 httpx
 beautifulsoup4
 matplotlib
+plotly
