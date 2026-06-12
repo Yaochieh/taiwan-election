@@ -398,17 +398,23 @@ def get_elections_with_platforms() -> pd.DataFrame:
 
 
 def get_candidates_with_platform_status(election_id: int, district: str | None = None) -> pd.DataFrame:
-    """某選舉所有候選人，含政見條數與來源資訊。
+    """某選舉所有候選人，含政見條數、圖片政見張數、來源資訊。
     用於政見頁面顯示——包含未繳交政見的候選人。
     """
     with get_connection() as conn:
+        base_cols = """
+            c.candidate_id, c.name AS candidate_name,
+            p.name AS party_name, p.color_hex,
+            er.district, er.votes, er.elected,
+            (SELECT COUNT(*) FROM platforms pl
+             WHERE pl.candidate_id = c.candidate_id AND pl.election_id = ?) AS platform_count,
+            (SELECT COUNT(*) FROM platform_sources ps
+             WHERE ps.candidate_id = c.candidate_id AND ps.election_id = ?
+                   AND ps.source_type = 'image_platform') AS image_count
+        """
         if district:
-            q = """
-                SELECT c.candidate_id, c.name AS candidate_name,
-                       p.name AS party_name, p.color_hex,
-                       er.district, er.votes, er.elected,
-                       (SELECT COUNT(*) FROM platforms pl
-                        WHERE pl.candidate_id = c.candidate_id AND pl.election_id = ?) AS platform_count
+            q = f"""
+                SELECT {base_cols}
                 FROM candidates c
                 JOIN election_results er
                     ON er.candidate_id = c.candidate_id AND er.election_id = c.election_id
@@ -416,14 +422,10 @@ def get_candidates_with_platform_status(election_id: int, district: str | None =
                 WHERE c.election_id = ? AND er.district = ?
                 ORDER BY er.elected DESC, er.votes DESC
             """
-            params = (election_id, election_id, district)
+            params = (election_id, election_id, election_id, district)
         else:
-            q = """
-                SELECT c.candidate_id, c.name AS candidate_name,
-                       p.name AS party_name, p.color_hex,
-                       er.district, er.votes, er.elected,
-                       (SELECT COUNT(*) FROM platforms pl
-                        WHERE pl.candidate_id = c.candidate_id AND pl.election_id = ?) AS platform_count
+            q = f"""
+                SELECT {base_cols}
                 FROM candidates c
                 JOIN election_results er
                     ON er.candidate_id = c.candidate_id AND er.election_id = c.election_id
@@ -432,8 +434,22 @@ def get_candidates_with_platform_status(election_id: int, district: str | None =
                 GROUP BY c.candidate_id
                 ORDER BY er.elected DESC, er.votes DESC
             """
-            params = (election_id, election_id)
+            params = (election_id, election_id, election_id)
         return pd.read_sql_query(q, conn, params=params)
+
+
+def get_platform_images(candidate_id: int, election_id: int) -> pd.DataFrame:
+    """某候選人的圖片版政見。"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT local_path, url, description
+            FROM platform_sources
+            WHERE candidate_id = ? AND election_id = ? AND source_type = 'image_platform'
+            ORDER BY source_id
+            """,
+            conn, params=(candidate_id, election_id)
+        )
 
 
 def get_districts_for_election(election_id: int) -> pd.DataFrame:
