@@ -148,6 +148,7 @@ class CandidatePlatformStatus(BaseModel):
     district: str | None = None
     votes: float | None = None
     elected: int | None = None
+    photo_path: str | None = None
     platform_count: int = Field(description="文字政見數")
     image_count: int = Field(description="圖片政見張數")
 

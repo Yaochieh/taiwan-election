@@ -545,10 +545,14 @@ def get_candidates_with_platform_status(election_id: int, district: str | None =
     用於政見頁面顯示——包含未繳交政見的候選人。
     """
     with get_connection() as conn:
-        base_cols = """
+        # 容錯：photo_path 欄位可能還不存在
+        cols_check = [r["name"] for r in conn.execute("PRAGMA table_info(candidates)")]
+        photo_col = "c.photo_path" if "photo_path" in cols_check else "NULL AS photo_path"
+        base_cols = f"""
             c.candidate_id, c.name AS candidate_name,
             p.name AS party_name, p.color_hex,
             er.district, er.votes, er.elected,
+            {photo_col},
             (SELECT COUNT(*) FROM platforms pl
              WHERE pl.candidate_id = c.candidate_id AND pl.election_id = ?) AS platform_count,
             (SELECT COUNT(*) FROM platform_sources ps

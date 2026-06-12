@@ -48,6 +48,11 @@ images_dir = Path(__file__).parent.parent / "data" / "bulletin_images"
 if images_dir.exists():
     app.mount("/static/bulletin_images", StaticFiles(directory=images_dir), name="bulletin_images")
 
+# 候選人照片
+photos_dir = Path(__file__).parent.parent / "data" / "candidate_photos"
+if photos_dir.exists():
+    app.mount("/static/candidate_photos", StaticFiles(directory=photos_dir), name="candidate_photos")
+
 
 @app.get("/health", tags=["meta"])
 def health():
