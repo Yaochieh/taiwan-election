@@ -20,23 +20,23 @@ page = st.sidebar.selectbox(
 )
 
 if page == "選舉時程":
-    from app.pages.elections import render
+    from app.views.elections import render
     render()
 elif page == "政黨席次":
-    from app.pages.parties import render
+    from app.views.parties import render
     render()
 elif page == "候選人查詢":
-    from app.pages.candidate import render
+    from app.views.candidate import render
     render()
 elif page == "候選人政見":
-    from app.pages.platforms import render
+    from app.views.platforms import render
     render()
 elif page == "縣市長歷屆結果":
-    from app.pages.mayors import render
+    from app.views.mayors import render
     render()
 elif page == "選舉地圖":
-    from app.pages.map import render
+    from app.views.map import render
     render()
 elif page == "趨勢分析":
-    from app.pages.trends import render
+    from app.views.trends import render
     render()
