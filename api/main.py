@@ -23,7 +23,13 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Next.js 上線後可改成特定 domain
+    allow_origins=[
+        "https://taiwan-election-web.vercel.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    # 允許 Vercel 的 preview deployments（每個 PR 都會有獨立網址）
+    allow_origin_regex=r"https://taiwan-election-web-.*\.vercel\.app",
     allow_credentials=False,
     allow_methods=["GET"],
     allow_headers=["*"],
