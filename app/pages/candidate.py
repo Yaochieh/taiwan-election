@@ -83,6 +83,7 @@ def _render_profile(name: str):
         "年份":    df["date"].str[:4].values,
         "選舉":    df["election_name"].values,
         "類型":    df["election_type"].map(_ELECTION_TYPE_ZH).values,
+        "角色":    df["role"].fillna("").values,
         "政黨":    df["party_name"].fillna("無黨籍").values,
         "選區":    df["district"].apply(clean_district).values,
         "得票數":  df["votes"].apply(
@@ -196,6 +197,7 @@ def _render_search():
             "年份":   group["date"].str[:4].values,
             "選舉":   group["election_name"].values,
             "政黨":   group["party_name"].fillna("無").values,
+            "角色":   group["role"].fillna("").values,
             "選區":   group["district"].apply(clean_district).values,
             "得票數": group["votes"].apply(
                 lambda v: f"{int(v):,}" if pd.notna(v) and v > 0 else "—"

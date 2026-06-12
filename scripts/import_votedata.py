@@ -176,7 +176,7 @@ def upsert_election(conn: sqlite3.Connection, name: str, etype: str, date: str,
 
 
 def upsert_candidate(conn: sqlite3.Connection, name: str, election_id: int,
-                     party_id: int | None) -> int:
+                     party_id: int | None, background: str | None = None) -> int:
     row = conn.execute(
         "SELECT candidate_id FROM candidates WHERE name = ? AND election_id = ?",
         (name, election_id)
@@ -185,10 +185,13 @@ def upsert_candidate(conn: sqlite3.Connection, name: str, election_id: int,
         if party_id is not None:
             conn.execute("UPDATE candidates SET party_id = ? WHERE candidate_id = ?",
                          (party_id, row["candidate_id"]))
+        if background is not None:
+            conn.execute("UPDATE candidates SET background = ? WHERE candidate_id = ?",
+                         (background, row["candidate_id"]))
         return row["candidate_id"]
     cur = conn.execute(
-        "INSERT OR IGNORE INTO candidates (name, election_id, party_id) VALUES (?, ?, ?)",
-        (name, election_id, party_id)
+        "INSERT OR IGNORE INTO candidates (name, election_id, party_id, background) VALUES (?, ?, ?, ?)",
+        (name, election_id, party_id, background)
     )
     conn.commit()
     return cur.lastrowid or conn.execute(
@@ -262,16 +265,17 @@ def parse_candidates(df: pd.DataFrame, is_presidential: bool) -> list[dict]:
         candidates = []
         for (area_key, ticket_num), members in tickets.items():
             members.sort(key=lambda x: x["position"])
-            name = "/".join(m["name"] for m in members)
-            party_code = members[0]["party_code"]
-            elected = members[0]["elected"]  # 正式候選人的旗標
-            candidates.append({
-                "area": area_key,
-                "cand_num": ticket_num,
-                "name": name,
-                "party_code": party_code,
-                "elected": elected,
-            })
+            for m in members:
+                background = "正總統" if m["position"] == 1 else "副總統"
+                candidates.append({
+                    "area": area_key,
+                    "cand_num": ticket_num,
+                    "position": m["position"],
+                    "name": m["name"],
+                    "party_code": members[0]["party_code"],  # 同一組共用政黨
+                    "elected": members[0]["elected"],         # 以正總統旗標為準
+                    "background": background,
+                })
         return candidates
     else:
         result = []
@@ -514,12 +518,18 @@ def process_folder(z: zipfile.ZipFile, leaf_dir: str,
         party_id_map[code] = pid
 
     # ── 候選人與選舉結果 ─────────────────────────────────────────────────────
-    # 建立 (area, cand_num) → candidate_id 的對照
+    # 建立 (area, cand_num[, position]) → candidate_id 的對照
     cand_id_map: dict[tuple, int] = {}
     for c in candidates:
         pid = party_id_map.get(c["party_code"])
-        cid = upsert_candidate(conn, c["name"], election_id, pid)
-        cand_id_map[(c["area"], c["cand_num"])] = cid
+        bg = c.get("background")
+        cid = upsert_candidate(conn, c["name"], election_id, pid, background=bg)
+        # 對總統選舉：key 含 position 以區分正副；其他選舉無 position
+        position = c.get("position")
+        if position is not None:
+            cand_id_map[(c["area"], c["cand_num"], position)] = cid
+        else:
+            cand_id_map[(c["area"], c["cand_num"])] = cid
 
         # 更新 elected 旗標（直接寫入 candidates 表的 elected 欄如果有的話）
         # 我們用 election_results 的 elected 欄記錄
@@ -602,26 +612,30 @@ def process_folder(z: zipfile.ZipFile, leaf_dir: str,
 
         for cand_num, votes in cand_votes.items():
             cid = None
-            # 嘗試從 cand_id_map 找 candidate_id
+            # 找出對應此 cand_num 的所有 candidate_id（正副總統各一）
+            matched_cids: list[int] = []
             for c in candidates:
-                # 對應 area：先精確，再放寬到縣市層級
                 c_area = c["area"]
                 area_match = (
                     c_area == area_key or
                     (c_area[0], c_area[1], 0) == area_key or
                     (c_area[0], 0, 0) == area_key or
-                    (0, 0, 0) == area_key  # 全國
+                    (0, 0, 0) == area_key
                 )
-                if area_match and c["cand_num"] == cand_num:
+                if not (area_match and c["cand_num"] == cand_num):
+                    continue
+                position = c.get("position")
+                if position is not None:
+                    cid = cand_id_map.get((c["area"], cand_num, position))
+                else:
                     cid = cand_id_map.get((c["area"], cand_num))
-                    break
+                if cid:
+                    matched_cids.append(cid)
 
-            if cid is None:
-                continue
-
-            is_elected = compute_elected and (cand_num == winner)
-            upsert_result(conn, election_id, cid, district, votes, is_elected)
-            total_rows += 1
+            for cid in matched_cids:
+                is_elected = compute_elected and (cand_num == winner)
+                upsert_result(conn, election_id, cid, district, votes, is_elected)
+                total_rows += 1
 
     conn.commit()
     return total_rows

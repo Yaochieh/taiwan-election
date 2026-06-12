@@ -258,7 +258,7 @@ def get_elected_count_by_election() -> pd.DataFrame:
 
 
 def get_presidential_vote_trend() -> pd.DataFrame:
-    """歷屆總統選舉各候選人得票，依日期排序"""
+    """歷屆總統選舉各候選人得票，依日期排序（只取正總統，避免正副重複計票）"""
     with get_connection() as conn:
         return pd.read_sql_query(
             """
@@ -270,6 +270,7 @@ def get_presidential_vote_trend() -> pd.DataFrame:
             JOIN elections e ON er.election_id = e.election_id
             LEFT JOIN parties p ON c.party_id = p.party_id
             WHERE e.type = 'presidential'
+              AND COALESCE(c.background, '正總統') != '副總統'
             GROUP BY e.election_id, c.candidate_id
             ORDER BY e.date, votes DESC
             """,
@@ -351,7 +352,7 @@ def search_candidates(query: str) -> pd.DataFrame:
     with get_connection() as conn:
         return pd.read_sql_query(
             """
-            SELECT c.name, c.district,
+            SELECT c.name, c.district, c.background AS role,
                    e.date, e.name AS election_name, e.type AS election_type,
                    p.name AS party_name,
                    SUM(r.votes) AS votes,
