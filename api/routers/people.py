@@ -11,3 +11,9 @@ def person_profile(name: str):
     if not profile:
         raise HTTPException(status_code=404, detail="找不到此人物")
     return profile
+
+
+@router.get("/{name}/targets")
+def person_targets(name: str):
+    """取得該政治人物的政見追蹤目標（含 baseline、target、進度資料點）。"""
+    return queries.get_person_targets(name)

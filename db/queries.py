@@ -328,6 +328,49 @@ def get_seats_by_election(election_id: int) -> pd.DataFrame:
         )
 
 
+def get_person_targets(name: str) -> list[dict]:
+    """取得某政治人物的所有政見追蹤目標（含進度資料點）。"""
+    with get_connection() as conn:
+        # 容錯：表可能不存在
+        tables = [r["name"] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='platform_targets'"
+        )]
+        if not tables:
+            return []
+        targets = conn.execute("""
+            SELECT t.*,
+                   e.name AS election_name, e.date AS election_date
+            FROM platform_targets t
+            LEFT JOIN elections e ON t.election_id = e.election_id
+            WHERE t.person_name = ?
+            ORDER BY t.category, t.target_id
+        """, (name,)).fetchall()
+
+        result = []
+        for t in targets:
+            progress = conn.execute("""
+                SELECT recorded_at, current_value, note, source_url
+                FROM platform_target_progress
+                WHERE target_id = ?
+                ORDER BY recorded_at
+            """, (t["target_id"],)).fetchall()
+            row = dict(t)
+            row["progress"] = [dict(p) for p in progress]
+            # 計算進度百分比
+            baseline = t["baseline_value"]
+            target = t["target_value"]
+            if baseline is not None and target is not None and target != baseline:
+                latest = progress[-1]["current_value"] if progress else baseline
+                pct = (latest - baseline) / (target - baseline) * 100
+                row["progress_pct"] = round(max(0, min(100, pct)), 1)
+                row["latest_value"] = latest
+            else:
+                row["progress_pct"] = None
+                row["latest_value"] = None
+            result.append(row)
+        return result
+
+
 def get_person_profile(name: str) -> dict:
     """聚合「同姓名」候選人跨選舉的所有資料。
 
