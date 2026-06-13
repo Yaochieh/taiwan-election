@@ -328,6 +328,118 @@ def get_seats_by_election(election_id: int) -> pd.DataFrame:
         )
 
 
+def unified_search(query: str, limit: int = 50) -> dict:
+    """跨站搜尋：候選人、政黨、選舉、政見內容。"""
+    q_like = f"%{query}%"
+    with get_connection() as conn:
+        # 1. 候選人（按出現次數聚合）
+        candidates = conn.execute("""
+            SELECT c.name, COUNT(DISTINCT c.election_id) AS election_count,
+                   MIN(c.election_id) AS sample_election_id,
+                   MAX(CASE WHEN er.elected = 1 THEN 1 ELSE 0 END) AS ever_elected,
+                   GROUP_CONCAT(DISTINCT p.name) AS parties
+            FROM candidates c
+            LEFT JOIN election_results er
+                ON er.candidate_id = c.candidate_id
+            LEFT JOIN parties p ON c.party_id = p.party_id
+            WHERE c.name LIKE ?
+            GROUP BY c.name
+            ORDER BY election_count DESC, ever_elected DESC
+            LIMIT ?
+        """, (q_like, limit)).fetchall()
+
+        # 2. 政黨
+        parties = conn.execute("""
+            SELECT party_id, name, abbreviation, color_hex
+            FROM parties
+            WHERE name LIKE ? OR abbreviation LIKE ?
+            LIMIT ?
+        """, (q_like, q_like, limit)).fetchall()
+
+        # 3. 選舉
+        elections = conn.execute("""
+            SELECT election_id, name, type, date, status, description
+            FROM elections
+            WHERE name LIKE ? OR description LIKE ?
+            ORDER BY date DESC
+            LIMIT ?
+        """, (q_like, q_like, limit)).fetchall()
+
+        # 4. 政見內容（取前 N 個 snippet）
+        platforms = conn.execute("""
+            SELECT pl.platform_id, pl.candidate_id, pl.election_id, pl.content,
+                   c.name AS candidate_name,
+                   p.name AS party_name, p.color_hex,
+                   e.name AS election_name, e.date AS election_date
+            FROM platforms pl
+            JOIN candidates c ON pl.candidate_id = c.candidate_id
+            JOIN elections e ON pl.election_id = e.election_id
+            LEFT JOIN parties p ON c.party_id = p.party_id
+            WHERE pl.content LIKE ?
+            ORDER BY e.date DESC
+            LIMIT ?
+        """, (q_like, limit)).fetchall()
+
+        # 5. OCR 文字
+        ocr_cols = [r["name"] for r in conn.execute("PRAGMA table_info(platform_sources)")]
+        ocr_hits = []
+        if "ocr_text" in ocr_cols:
+            ocr_rows = conn.execute("""
+                SELECT ps.candidate_id, ps.election_id, ps.ocr_text, ps.local_path,
+                       c.name AS candidate_name,
+                       p.name AS party_name, p.color_hex,
+                       e.name AS election_name, e.date AS election_date
+                FROM platform_sources ps
+                JOIN candidates c ON ps.candidate_id = c.candidate_id
+                JOIN elections e ON ps.election_id = e.election_id
+                LEFT JOIN parties p ON c.party_id = p.party_id
+                WHERE ps.source_type = 'image_platform' AND ps.ocr_text LIKE ?
+                ORDER BY e.date DESC
+                LIMIT ?
+            """, (q_like, limit)).fetchall()
+            # 抽取包含關鍵字的片段
+            for r in ocr_rows:
+                text = r["ocr_text"]
+                idx = text.find(query)
+                if idx == -1:
+                    continue
+                start = max(0, idx - 40)
+                end = min(len(text), idx + len(query) + 80)
+                snippet = ("..." if start > 0 else "") + text[start:end] + ("..." if end < len(text) else "")
+                ocr_hits.append({
+                    **dict(r),
+                    "snippet": snippet,
+                })
+
+        # 為 platforms 也產生 snippet
+        platforms_with_snippet = []
+        for r in platforms:
+            content = r["content"]
+            idx = content.find(query)
+            if idx == -1:
+                idx = 0
+            start = max(0, idx - 40)
+            end = min(len(content), idx + len(query) + 80)
+            snippet = ("..." if start > 0 else "") + content[start:end] + ("..." if end < len(content) else "")
+            platforms_with_snippet.append({
+                **dict(r),
+                "snippet": snippet,
+            })
+
+        return {
+            "query": query,
+            "candidates": [dict(r) for r in candidates],
+            "parties": [dict(r) for r in parties],
+            "elections": [dict(r) for r in elections],
+            "platforms": platforms_with_snippet,
+            "ocr": ocr_hits,
+            "total": (
+                len(candidates) + len(parties) + len(elections)
+                + len(platforms_with_snippet) + len(ocr_hits)
+            ),
+        }
+
+
 def get_legislative_seats(year: str) -> dict:
     """回傳指定年份立法院席次組成。
     113 席 = 73 區域 + 3 山地原住民 + 3 平地原住民 + 34 不分區（Hare quota）
