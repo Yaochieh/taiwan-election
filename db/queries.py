@@ -764,6 +764,30 @@ def get_legislative_seats(year: str) -> dict:
         }
 
 
+def get_legislative_trend() -> list[dict]:
+    """歷屆立委選舉各黨席次（區域+原住民）。
+
+    立委選舉年份：2008、2012、2016、2020、2024
+    每年取所有 elected=1 的 election_results，按政黨分組。
+    """
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT strftime('%Y', e.date) AS year,
+                   COALESCE(p.name, '無黨籍') AS party,
+                   p.color_hex,
+                   COUNT(*) AS seats
+            FROM election_results er
+            JOIN candidates c ON er.candidate_id = c.candidate_id
+            JOIN elections e ON er.election_id = e.election_id
+            LEFT JOIN parties p ON c.party_id = p.party_id
+            WHERE e.type='legislative' AND er.elected = 1
+              AND strftime('%Y', e.date) IN ('2008','2012','2016','2020','2024')
+            GROUP BY year, party
+            ORDER BY year, seats DESC
+        """).fetchall()
+        return [dict(r) for r in rows]
+
+
 def get_mayoral_history() -> pd.DataFrame:
     """歷屆縣市長選舉當選結果"""
     with get_connection() as conn:
