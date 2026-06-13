@@ -138,7 +138,7 @@ def get_results_by_election(election_id: int, district: str | None = None) -> pd
         if district:
             return pd.read_sql_query(
                 """
-                SELECT er.district, c.name AS candidate_name,
+                SELECT er.district, c.name AS candidate_name, c.background,
                        p.name AS party_name, p.color_hex,
                        er.votes, er.elected
                 FROM election_results er
@@ -151,7 +151,7 @@ def get_results_by_election(election_id: int, district: str | None = None) -> pd
             )
         return pd.read_sql_query(
             """
-            SELECT er.district, c.name AS candidate_name,
+            SELECT er.district, c.name AS candidate_name, c.background,
                    p.name AS party_name, p.color_hex,
                    er.votes, er.elected
             FROM election_results er

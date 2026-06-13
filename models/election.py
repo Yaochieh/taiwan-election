@@ -59,6 +59,7 @@ class CandidateSearchResult(BaseModel):
 class ElectionResult(BaseModel):
     district: str | None = None
     candidate_name: str
+    background: str | None = None
     party_name: str | None = None
     color_hex: str | None = None
     votes: int
