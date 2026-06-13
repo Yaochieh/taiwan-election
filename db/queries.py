@@ -329,15 +329,33 @@ def get_seats_by_election(election_id: int) -> pd.DataFrame:
 
 
 def get_person_targets(name: str) -> list[dict]:
-    """取得某政治人物的所有政見追蹤目標（含進度資料點）。"""
+    """取得某政治人物的所有政見追蹤目標（含進度資料點、多來源、父子結構）。
+
+    回傳：父目標列表，每個父目標含 children[] 陣列。
+    """
     with get_connection() as conn:
-        # 容錯：表可能不存在
         tables = [r["name"] for r in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='platform_targets'"
         )]
         if not tables:
             return []
+        # 確認 v2 欄位存在（容錯）
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(platform_targets)")]
+        has_parent = "parent_target_id" in cols
+        has_kind = "data_source_kind" in cols
+        has_rank = "rank" in cols
+        has_pps = bool([r["name"] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='platform_progress_sources'"
+        )])
+
         targets = conn.execute("""
+            SELECT t.*,
+                   e.name AS election_name, e.date AS election_date
+            FROM platform_targets t
+            LEFT JOIN elections e ON t.election_id = e.election_id
+            WHERE t.person_name = ?
+            ORDER BY t.rank, t.target_id
+        """, (name,)).fetchall() if has_rank else conn.execute("""
             SELECT t.*,
                    e.name AS election_name, e.date AS election_date
             FROM platform_targets t
@@ -346,17 +364,34 @@ def get_person_targets(name: str) -> list[dict]:
             ORDER BY t.category, t.target_id
         """, (name,)).fetchall()
 
-        result = []
+        # 載入所有 progress + sources
+        targets_by_id = {}
         for t in targets:
-            progress = conn.execute("""
-                SELECT recorded_at, current_value, note, source_url
+            row = dict(t)
+            progress_rows = conn.execute("""
+                SELECT progress_id, recorded_at, current_value, note, source_url
                 FROM platform_target_progress
                 WHERE target_id = ?
                 ORDER BY recorded_at
             """, (t["target_id"],)).fetchall()
-            row = dict(t)
-            row["progress"] = [dict(p) for p in progress]
-            # 計算進度百分比
+            progress = []
+            for p in progress_rows:
+                p_dict = dict(p)
+                # 多來源
+                if has_pps:
+                    src_rows = conn.execute("""
+                        SELECT url, source_type, publisher, authority_level
+                        FROM platform_progress_sources
+                        WHERE progress_id = ?
+                        ORDER BY authority_level, source_id
+                    """, (p["progress_id"],)).fetchall()
+                    p_dict["sources"] = [dict(s) for s in src_rows]
+                else:
+                    p_dict["sources"] = []
+                progress.append(p_dict)
+            row["progress"] = progress
+
+            # 進度百分比
             baseline = t["baseline_value"]
             target = t["target_value"]
             if baseline is not None and target is not None and target != baseline:
@@ -367,8 +402,18 @@ def get_person_targets(name: str) -> list[dict]:
             else:
                 row["progress_pct"] = None
                 row["latest_value"] = None
-            result.append(row)
-        return result
+            row["children"] = []
+            targets_by_id[t["target_id"]] = row
+
+        # 組成樹狀
+        roots = []
+        for tid, t in targets_by_id.items():
+            parent_id = t.get("parent_target_id") if has_parent else None
+            if parent_id and parent_id in targets_by_id:
+                targets_by_id[parent_id]["children"].append(t)
+            else:
+                roots.append(t)
+        return roots
 
 
 def get_person_profile(name: str) -> dict:
