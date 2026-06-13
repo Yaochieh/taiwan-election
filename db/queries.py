@@ -328,6 +328,98 @@ def get_seats_by_election(election_id: int) -> pd.DataFrame:
         )
 
 
+def get_person_profile(name: str) -> dict:
+    """聚合「同姓名」候選人跨選舉的所有資料。
+
+    返回：候選人基本資料 + 每次參選紀錄（選舉、選區、政黨、得票、政見統計）。
+    注意：同名候選人會合併。
+    """
+    with get_connection() as conn:
+        # 候選人 id（同一姓名可能有多個 id，因為每場選舉新建一筆 candidate）
+        candidate_rows = conn.execute("""
+            SELECT c.candidate_id, c.election_id, c.party_id, c.background,
+                   c.district AS cand_district, c.photo_path,
+                   p.name AS party_name, p.color_hex,
+                   e.name AS election_name, e.type AS election_type,
+                   e.date AS election_date, e.description AS election_desc,
+                   COALESCE(er.district, c.district) AS district,
+                   er.votes, er.elected,
+                   (SELECT COUNT(*) FROM platforms pl
+                    WHERE pl.candidate_id = c.candidate_id) AS platform_count,
+                   (SELECT COUNT(*) FROM platform_sources ps
+                    WHERE ps.candidate_id = c.candidate_id
+                          AND ps.source_type = 'image_platform') AS image_count
+            FROM candidates c
+            LEFT JOIN parties p ON c.party_id = p.party_id
+            LEFT JOIN elections e ON c.election_id = e.election_id
+            LEFT JOIN election_results er
+                ON er.candidate_id = c.candidate_id
+                   AND er.election_id = c.election_id
+            WHERE c.name = ?
+            ORDER BY e.date DESC
+        """, (name,)).fetchall()
+
+        if not candidate_rows:
+            return None  # type: ignore
+
+        # 統整資料
+        photo = None
+        background = None
+        for r in candidate_rows:
+            if r["photo_path"] and not photo:
+                photo = r["photo_path"]
+            if r["background"] and not background:
+                background = r["background"]
+
+        races = []
+        seen_keys = set()
+        for r in candidate_rows:
+            key = (r["election_id"], r["district"] or "")
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            races.append({
+                "candidate_id": r["candidate_id"],
+                "election_id": r["election_id"],
+                "election_name": r["election_name"],
+                "election_type": r["election_type"],
+                "election_date": r["election_date"],
+                "election_description": r["election_desc"],
+                "district": r["district"],
+                "party_name": r["party_name"],
+                "color_hex": r["color_hex"],
+                "votes": r["votes"],
+                "elected": r["elected"],
+                "platform_count": r["platform_count"],
+                "image_count": r["image_count"],
+            })
+
+        # 政黨變遷
+        parties = []
+        for r in races:
+            p = r["party_name"] or "無黨籍"
+            if not parties or parties[-1]["party"] != p:
+                parties.append({
+                    "party": p,
+                    "color_hex": r["color_hex"],
+                    "from_date": r["election_date"],
+                })
+
+        total_races = len(races)
+        total_wins = sum(1 for r in races if r["elected"] == 1)
+
+        return {
+            "name": name,
+            "photo_path": photo,
+            "background": background,
+            "total_races": total_races,
+            "total_wins": total_wins,
+            "win_rate": total_wins / total_races if total_races > 0 else 0,
+            "races": races,
+            "party_history": parties,
+        }
+
+
 def unified_search(query: str, limit: int = 50) -> dict:
     """跨站搜尋：候選人、政黨、選舉、政見內容。"""
     q_like = f"%{query}%"
