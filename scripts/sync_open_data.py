@@ -169,9 +169,69 @@ def fetch_taipei_long_term_care() -> list[TargetMatch]:
 
 
 def fetch_taipei_urban_renewal() -> list[TargetMatch]:
-    """都更處未提供公開 API；目前以人工查詢為主。"""
-    print("  · 都更處未提供開放 API（需人工查 https://gis.uro.taipei/）")
-    return []
+    """臺北都市更新容積獎勵案件統計表 — 年度核定案件數（2002-）。
+
+    資料源：data.gov.tw + data.taipei（都更處）
+    URL: data.taipei/api/dataset/cda6b568.../resource/01dc6879.../download
+    更新頻率：每年
+    註：此為「容積獎勵案件」（含民辦+公辦），非僅公辦都更。
+    """
+    URL = ("https://data.taipei/api/dataset/cda6b568-0035-420b-bd05-6ca9bfd4bda0"
+           "/resource/01dc6879-2e74-4e74-a033-43674c7af019/download")
+    PUBLISHER = "臺北市都市更新處（data.taipei）"
+
+    try:
+        raw = _http_get(URL)
+        text = raw.decode("utf-8-sig", errors="replace")
+        rows = list(csv.DictReader(io.StringIO(text)))
+    except Exception as e:
+        print(f"  ✗ 抓取失敗：{e}")
+        return []
+    if not rows:
+        return []
+
+    # 取蔣萬安任期內的年度（2023+）
+    matches: list[TargetMatch] = []
+    for r in rows:
+        year_raw = r.get("Year（西元年）") or r.get("Year")
+        qty_raw = r.get("Quantity（核定案件數量）") or r.get("Quantity")
+        if not year_raw or not qty_raw:
+            continue
+        try:
+            year = int(year_raw)
+            qty = int(qty_raw)
+        except ValueError:
+            continue
+        if year < 2023:
+            continue
+        # 寫到年底的進度
+        matches.append(TargetMatch(
+            person_name="蔣萬安",
+            target_title_contains="降低門檻",   # 我們有「降低門檻至75%」目標
+            # 不要寫到「降低門檻」目標下，因為它是 binary policy
+            # 暫時記錄到「已啟動案件」這條
+            recorded_at=f"{year}-12-31",
+            current_value=float(qty),
+            note=f"{year} 年容積獎勵核定案件 {qty} 件（不限公辦）",
+            source_url=URL,
+            publisher=PUBLISHER,
+            authority_level=1,
+        ))
+    # 修正錯誤 target_title_contains（之前我為了 demo 用了 降低門檻）
+    fixed = []
+    for m in matches:
+        fixed.append(TargetMatch(
+            person_name=m.person_name,
+            target_title_contains="已啟動案件",
+            recorded_at=m.recorded_at,
+            current_value=m.current_value,
+            note=m.note,
+            source_url=m.source_url,
+            publisher=m.publisher,
+            authority_level=m.authority_level,
+        ))
+    print(f"  ✓ 抓到 {len(rows)} 年份資料，匯入 {len(fixed)} 筆任期內")
+    return fixed
 
 
 def fetch_national_social_housing() -> list[TargetMatch]:
