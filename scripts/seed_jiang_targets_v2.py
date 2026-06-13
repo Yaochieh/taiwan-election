@@ -42,12 +42,14 @@ PARENT_TARGETS = [
         "rank": 1,
         "children": [
             {
-                "title": "已完工戶數",
-                "description": "社宅實際完工可入住",
+                "title": "已完工戶數（累計）",
+                "description": "臺北市社宅累計完工戶數（含歷任市長興建）。"
+                               "資料來自市府戰情中心開放 API。"
+                               "⚠️ 此為累計值非「蔣任內新增」；開放資料未含完工日期欄位，無法精確區分。",
                 "metric_unit": "戶",
-                "baseline_value": 0,
+                "baseline_value": 12500,
                 "baseline_date": "2022-12-25",
-                "target_value": 8000,
+                "target_value": 20500,
                 "target_date": "2026-12-24",
                 "status": "in_progress",
                 "data_source_kind": "official_gov",
@@ -75,9 +77,11 @@ PARENT_TARGETS = [
                 ],
             },
             {
-                "title": "已開工戶數",
+                "title": "已開工戶數（累計）",
+                "description": "臺北市社宅累計施工中或待開工戶數。"
+                               "⚠️ 累計值，含柯時期開工延續到蔣任內。",
                 "metric_unit": "戶",
-                "baseline_value": 0,
+                "baseline_value": 2000,
                 "baseline_date": "2022-12-25",
                 "target_value": 5000,
                 "target_date": "2026-12-24",
@@ -114,11 +118,12 @@ PARENT_TARGETS = [
                 ],
             },
             {
-                "title": "規劃中戶數",
+                "title": "規劃中戶數（累計）",
+                "description": "規劃中含招標中戶數。⚠️ 累計值。",
                 "metric_unit": "戶",
                 "baseline_value": 0,
                 "baseline_date": "2022-12-25",
-                "target_value": 2000,
+                "target_value": 3000,
                 "target_date": "2026-12-24",
                 "status": "in_progress",
                 "data_source_kind": "official_gov",
@@ -140,11 +145,12 @@ PARENT_TARGETS = [
                 ],
             },
             {
-                "title": "已入住戶數",
+                "title": "已入住戶數（累計）",
+                "description": "⚠️ 累計值（自社宅啟用以來）。",
                 "metric_unit": "戶",
-                "baseline_value": 0,
+                "baseline_value": 3500,
                 "baseline_date": "2022-12-25",
-                "target_value": 5000,
+                "target_value": 8000,
                 "target_date": "2026-12-24",
                 "status": "in_progress",
                 "data_source_kind": "official_gov",

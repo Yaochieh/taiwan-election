@@ -482,9 +482,10 @@ def get_person_profile(name: str) -> dict:
                 "image_count": r["image_count"],
             })
 
-        # 政黨變遷
+        # 政黨變遷：用「依日期由早到晚」的順序記錄首次出現
+        # races 是 DESC 排序，需要反向迭代
         parties = []
-        for r in races:
+        for r in reversed(races):
             p = r["party_name"] or "無黨籍"
             if not parties or parties[-1]["party"] != p:
                 parties.append({
