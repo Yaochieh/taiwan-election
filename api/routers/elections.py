@@ -78,3 +78,13 @@ def get_total_votes(election_id: int):
     """某選舉的有效票總數"""
     total = queries.get_total_votes_by_election(election_id)
     return {"election_id": election_id, "total_votes": total}
+
+
+@router.get("/{election_id}/townships")
+def get_township_results(
+    election_id: int,
+    county: str | None = Query(None, description="篩選縣市"),
+):
+    """某選舉的鄉鎮市區層級得票（總統選舉專用）"""
+    rows = queries.get_township_results(election_id, county)
+    return rows

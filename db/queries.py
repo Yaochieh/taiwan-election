@@ -928,3 +928,24 @@ def search_candidates(query: str) -> pd.DataFrame:
             """,
             conn, params=(f"%{query}%",)
         )
+
+
+def get_township_results(election_id: int, county: str | None = None) -> list[dict]:
+    """鄉鎮市區層級得票（總統選舉）"""
+    sql = """
+        SELECT tr.county, tr.township, tr.votes,
+               c.name AS candidate_name, c.background,
+               p.name AS party_name, p.color_hex
+        FROM township_results tr
+        JOIN candidates c ON tr.candidate_id = c.candidate_id
+        LEFT JOIN parties p ON c.party_id = p.party_id
+        WHERE tr.election_id = ?
+    """
+    params: list = [election_id]
+    if county:
+        sql += " AND tr.county = ?"
+        params.append(county)
+    sql += " ORDER BY tr.county, tr.township, tr.votes DESC"
+    with get_connection() as conn:
+        df = pd.read_sql_query(sql, conn, params=params)
+    return df.to_dict(orient="records")

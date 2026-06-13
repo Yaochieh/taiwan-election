@@ -29,6 +29,8 @@ TOTAL_BIG5 = "┴`▓╬"
 def find_pres_dirs(zf: zipfile.ZipFile, year_filter: str | None) -> dict[int, str]:
     """找各年的總統 elctks.csv 父目錄。"""
     found: dict[int, str] = {}
+    # 9任總統 = 1996（首屆民選），路徑沒有西元年
+    NINTH_BIG5 = "9Ñ⌠┴`▓╬"
     for f in zf.namelist():
         if not f.endswith("/elctks.csv"):
             continue
@@ -37,9 +39,12 @@ def find_pres_dirs(zf: zipfile.ZipFile, year_filter: str | None) -> dict[int, st
         if "立委" in f or "原住民" in f or "副總統" in f:
             continue
         m = re.search(r"/((?:19|20)\d{2})", f)
-        if not m:
+        if m:
+            ad_year = int(m.group(1))
+        elif NINTH_BIG5 in f:
+            ad_year = 1996
+        else:
             continue
-        ad_year = int(m.group(1))
         if year_filter and (int(year_filter) + 1911 != ad_year):
             continue
         parent_dir = f.rsplit("/", 1)[0]
