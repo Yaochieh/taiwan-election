@@ -780,14 +780,45 @@ def get_legislative_seats(year: str) -> dict:
         }
 
 
-def get_legislative_trend() -> list[dict]:
-    """歷屆立委選舉各黨席次（區域+原住民）。
+def _compute_party_list_seats(conn, election_id: int, total_seats: int = 34) -> dict[str, int]:
+    """Hare quota + 最大餘數法計算不分區席次。"""
+    rows = conn.execute("""
+        SELECT c.name AS party_name, er.votes
+        FROM election_results er
+        JOIN candidates c ON er.candidate_id = c.candidate_id
+        WHERE er.election_id = ? AND er.elected = 1 AND er.votes > 0
+    """, (election_id,)).fetchall()
+    if not rows:
+        return {}
+    total = sum(r["votes"] for r in rows)
+    if total == 0:
+        return {}
+    quota = total / total_seats
+    base = {}
+    remainder = {}
+    for r in rows:
+        b = int(r["votes"] // quota)
+        base[r["party_name"]] = b
+        remainder[r["party_name"]] = r["votes"] - b * quota
+    allocated = sum(base.values())
+    leftover = total_seats - allocated
+    for party, _ in sorted(remainder.items(), key=lambda x: -x[1])[:leftover]:
+        base[party] = base.get(party, 0) + 1
+    return {p: s for p, s in base.items() if s > 0}
 
-    立委選舉年份：2008、2012、2016、2020、2024
-    每年取所有 elected=1 的 election_results，按政黨分組。
+
+def get_legislative_trend() -> list[dict]:
+    """歷屆立委選舉各黨席次（區域+原住民+不分區）。
+
+    立委選舉年份：2008、2012、2016、2020、2024（每屆 113 席）
+    - 區域: 73 + 山地原住民 3 + 平地原住民 3 = 79 席
+      → 直接 COUNT(elected=1)
+    - 不分區: 34 席（Hare quota 配額計算）
+      → 由「不分區政黨」選舉的得票率計算
     """
     with get_connection() as conn:
-        rows = conn.execute("""
+        # 區域 + 原住民
+        regional_rows = conn.execute("""
             SELECT strftime('%Y', e.date) AS year,
                    COALESCE(p.name, '無黨籍') AS party,
                    p.color_hex,
@@ -798,10 +829,46 @@ def get_legislative_trend() -> list[dict]:
             LEFT JOIN parties p ON c.party_id = p.party_id
             WHERE e.type='legislative' AND er.elected = 1
               AND strftime('%Y', e.date) IN ('2008','2012','2016','2020','2024')
+              AND (e.description IS NULL OR e.description NOT LIKE '%不分區%')
             GROUP BY year, party
-            ORDER BY year, seats DESC
         """).fetchall()
-        return [dict(r) for r in rows]
+        seat_map: dict[tuple[str, str], dict] = {}
+        for r in regional_rows:
+            key = (r["year"], r["party"])
+            seat_map[key] = {
+                "year": r["year"],
+                "party": r["party"],
+                "color_hex": r["color_hex"],
+                "seats": r["seats"],
+            }
+
+        # 不分區（Hare quota）
+        pl_elections = conn.execute("""
+            SELECT election_id, strftime('%Y', date) AS year
+            FROM elections
+            WHERE type='legislative' AND description LIKE '%不分區%'
+              AND strftime('%Y', date) IN ('2008','2012','2016','2020','2024')
+        """).fetchall()
+        for e in pl_elections:
+            seats = _compute_party_list_seats(conn, e["election_id"])
+            # 取得 color_hex
+            for party_name, n in seats.items():
+                color = conn.execute(
+                    "SELECT color_hex FROM parties WHERE name = ?", (party_name,)
+                ).fetchone()
+                key = (e["year"], party_name)
+                if key in seat_map:
+                    seat_map[key]["seats"] += n
+                else:
+                    seat_map[key] = {
+                        "year": e["year"],
+                        "party": party_name,
+                        "color_hex": color["color_hex"] if color else None,
+                        "seats": n,
+                    }
+
+        out = sorted(seat_map.values(), key=lambda x: (x["year"], -x["seats"]))
+        return out
 
 
 def get_mayoral_history() -> pd.DataFrame:
