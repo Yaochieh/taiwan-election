@@ -501,6 +501,7 @@ def get_person_profile(name: str) -> dict:
                 "elected": r["elected"],
                 "platform_count": r["platform_count"],
                 "image_count": r["image_count"],
+                "background": r["background"],
             }
             # presidential：列出該候選人「在哪些縣市得票最高（勝選）」
             if r["election_type"] == "presidential":
