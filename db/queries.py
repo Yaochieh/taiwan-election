@@ -434,7 +434,12 @@ def get_person_profile(name: str) -> dict:
                    p.name AS party_name, p.color_hex,
                    e.name AS election_name, e.type AS election_type,
                    e.date AS election_date, e.description AS election_desc,
-                   COALESCE(c.district, MIN(er.district)) AS district,
+                   -- 優先取全國摘要列；若無則取任一縣市
+                   COALESCE(
+                     c.district,
+                     MAX(CASE WHEN er.district='全國' OR er.district LIKE '地區(0%' THEN er.district END),
+                     MIN(er.district)
+                   ) AS district,
                    -- 若有「全國」row 用它的票數，否則 SUM 縣市票數；
                    -- presidential 的「全國」row 已被 import 階段移除，所以這裡 SUM
                    -- 若有「全國摘要列」(全國 或 地區(0,0,0)) 用它的票數，
@@ -482,7 +487,7 @@ def get_person_profile(name: str) -> dict:
             if key in seen_keys:
                 continue
             seen_keys.add(key)
-            races.append({
+            race_dict = {
                 "candidate_id": r["candidate_id"],
                 "election_id": r["election_id"],
                 "election_name": r["election_name"],
@@ -496,7 +501,27 @@ def get_person_profile(name: str) -> dict:
                 "elected": r["elected"],
                 "platform_count": r["platform_count"],
                 "image_count": r["image_count"],
-            })
+            }
+            # presidential：列出該候選人「在哪些縣市得票最高（勝選）」
+            if r["election_type"] == "presidential":
+                county_rows = conn.execute("""
+                    SELECT er.district,
+                           er.votes AS my_votes,
+                           (SELECT MAX(er2.votes) FROM election_results er2
+                            WHERE er2.election_id = er.election_id
+                              AND er2.district = er.district) AS max_votes
+                    FROM election_results er
+                    WHERE er.election_id = ? AND er.candidate_id = ?
+                      AND er.district != '全國' AND er.district NOT LIKE '地區(0%'
+                """, (r["election_id"], r["candidate_id"])).fetchall()
+                counties_won = [
+                    c["district"]
+                    for c in county_rows
+                    if c["my_votes"] is not None and c["my_votes"] == c["max_votes"]
+                ]
+                race_dict["counties_won"] = counties_won
+                race_dict["counties_total"] = len(county_rows)
+            races.append(race_dict)
 
         # 政黨變遷：用「依日期由早到晚」的順序記錄首次出現
         # races 是 DESC 排序，需要反向迭代
