@@ -178,3 +178,4 @@ class MayoralHistory(BaseModel):
     candidate_name: str
     party_name: str | None = None
     votes: int
+    election_note: str | None = None
