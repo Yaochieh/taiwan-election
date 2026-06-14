@@ -1084,7 +1084,15 @@ def search_candidates(query: str) -> pd.DataFrame:
             SELECT c.name, c.district, c.background AS role,
                    e.date, e.name AS election_name, e.type AS election_type,
                    p.name AS party_name,
-                   SUM(r.votes) AS votes,
+                   -- 若有「全國」摘要列用它；否則 SUM 縣市
+                   COALESCE(
+                     SUM(CASE
+                       WHEN r.district='全國' OR r.district LIKE '地區(0%' THEN r.votes
+                     END),
+                     SUM(CASE
+                       WHEN r.district!='全國' AND r.district NOT LIKE '地區(0%' THEN r.votes
+                     END)
+                   ) AS votes,
                    MAX(r.elected) AS elected
             FROM candidates c
             JOIN elections e ON c.election_id = e.election_id
