@@ -739,11 +739,33 @@ def get_legislative_seats(year: str) -> dict:
 
                 for party, seats in seats_dict.items():
                     color = next((r["color_hex"] for r in rows if r["party"] == party), None)
+                    # 嘗試從 candidates 表取真實 (黨內 順位) 名單
+                    real_names = conn.execute("""
+                        SELECT c.name, c.background
+                        FROM candidates c
+                        LEFT JOIN parties p ON c.party_id = p.party_id
+                        WHERE c.election_id = ?
+                          AND p.name = ?
+                          AND c.background LIKE '不分區立委%'
+                        ORDER BY c.background  -- 含「第 N 順位」字串依字典序大致符合 rank
+                    """, (ids["不分區政黨"], party)).fetchall()
+                    # 解析 background 取 rank
+                    parsed = []
+                    for nr in real_names:
+                        import re as _re
+                        m = _re.search(r"第\s*(\d+)\s*順位", nr["background"] or "")
+                        if m:
+                            parsed.append((int(m.group(1)), nr["name"]))
+                    parsed.sort()
                     for i in range(seats):
+                        if i < len(parsed):
+                            name = parsed[i][1]
+                        else:
+                            name = f"({party} 第 {i+1} 順位)"
                         results["party_list"].append({
                             "kind": "party_list",
                             "district": "不分區",
-                            "candidate": f"({party} 第 {i+1} 順位)",
+                            "candidate": name,
                             "party": party,
                             "color_hex": color,
                             "votes": 0,
