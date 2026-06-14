@@ -279,7 +279,11 @@ def get_presidential_vote_trend() -> pd.DataFrame:
 
 
 def get_party_list_vote_trend() -> pd.DataFrame:
-    """歷屆不分區政黨票，依日期排序"""
+    """歷屆不分區政黨票，依日期排序。
+
+    僅取 election_results.votes > 0 的政黨層級 row，排除後加入的
+    34 位「不分區當選人候選人」row（他們票數=0）。
+    """
     with get_connection() as conn:
         return pd.read_sql_query(
             """
@@ -289,6 +293,7 @@ def get_party_list_vote_trend() -> pd.DataFrame:
             JOIN candidates c ON er.candidate_id = c.candidate_id
             JOIN elections e ON er.election_id = e.election_id
             WHERE e.description = '不分區政黨'
+              AND er.votes > 0
             ORDER BY e.date, er.votes DESC
             """,
             conn
@@ -307,6 +312,7 @@ def get_party_list_votes_by_date(date: str) -> pd.DataFrame:
             JOIN candidates c ON er.candidate_id = c.candidate_id
             JOIN elections e ON er.election_id = e.election_id
             WHERE e.date = ? AND e.description = '不分區政黨'
+              AND er.votes > 0
             ORDER BY er.votes DESC
             """,
             conn, params=(date,)
