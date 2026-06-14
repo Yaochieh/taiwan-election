@@ -424,14 +424,29 @@ def get_person_profile(name: str) -> dict:
     """
     with get_connection() as conn:
         # 候選人 id（同一姓名可能有多個 id，因為每場選舉新建一筆 candidate）
+        # 將 election_results 按 candidate_id 聚合：
+        # SUM(votes) 取得全國總票，MAX(elected) 表是否當選；
+        # 避免總統選舉因為有「全國」與 22 個縣市的 row 而出現多筆。
+        # 同一候選人若有多個 district（如 presidential per-county）只算一次。
         candidate_rows = conn.execute("""
             SELECT c.candidate_id, c.election_id, c.party_id, c.background,
                    c.district AS cand_district, c.photo_path,
                    p.name AS party_name, p.color_hex,
                    e.name AS election_name, e.type AS election_type,
                    e.date AS election_date, e.description AS election_desc,
-                   COALESCE(er.district, c.district) AS district,
-                   er.votes, er.elected,
+                   COALESCE(c.district, MIN(er.district)) AS district,
+                   -- 若有「全國」row 用它的票數，否則 SUM 縣市票數；
+                   -- presidential 的「全國」row 已被 import 階段移除，所以這裡 SUM
+                   -- 若有「全國摘要列」(全國 或 地區(0,0,0)) 用它的票數，
+                   -- 否則 SUM 縣市票數
+                   SUM(CASE
+                       WHEN er.district='全國' OR er.district LIKE '地區(0%' THEN er.votes
+                       ELSE 0
+                   END) +
+                   CASE WHEN COUNT(CASE
+                       WHEN er.district='全國' OR er.district LIKE '地區(0%' THEN 1
+                   END)=0 THEN COALESCE(SUM(er.votes), 0) ELSE 0 END AS votes,
+                   MAX(er.elected) AS elected,
                    (SELECT COUNT(*) FROM platforms pl
                     WHERE pl.candidate_id = c.candidate_id) AS platform_count,
                    (SELECT COUNT(*) FROM platform_sources ps
@@ -444,6 +459,7 @@ def get_person_profile(name: str) -> dict:
                 ON er.candidate_id = c.candidate_id
                    AND er.election_id = c.election_id
             WHERE c.name = ?
+            GROUP BY c.candidate_id
             ORDER BY e.date DESC
         """, (name,)).fetchall()
 
