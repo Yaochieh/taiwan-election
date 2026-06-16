@@ -60,6 +60,20 @@ ACTION_KEYWORDS = re.compile(
     r"輔導|補助|涵蓋|普及|興辦|擴增|擴建|採購"
 )
 
+# 過去達成（已完成事項）
+PAST_KEYWORDS = re.compile(
+    r"已完成|已達成|已興建|已蓋|已建|已通過|已實施|已落實|已上路|"
+    r"完工|啟用|過去四年|前任期內|去年|上半年|今年初|已採購|已輔導|"
+    r"已補助|已上線|已開幕|已蓋好|已建好|已破土"
+)
+
+# 未來承諾（將要做）
+FUTURE_KEYWORDS = re.compile(
+    r"將|預計|計劃|規劃|未來|預定|承諾|爭取|推動|預期|"
+    r"力拼|希望|盼|爭取|致力|準備|目標|預備|努力|"
+    r"任內|4年內|四年內|2030|2028|2026"
+)
+
 # 主題關鍵字（讓 target 自動歸類到 platform_topics 已存在的主題）
 TOPIC_KEYWORDS = {
     "住宅": ["社宅", "公宅", "社會住宅", "公辦都更", "都更", "包租代管", "青年住宅", "青安"],
@@ -74,12 +88,14 @@ TOPIC_KEYWORDS = {
 
 
 def ensure_target_columns(conn):
-    """確保 platform_targets 有 source_platform_id 欄位。"""
+    """確保 platform_targets 有 source_platform_id / tense 欄位。"""
     cols = [r[1] for r in conn.execute("PRAGMA table_info(platform_targets)")]
     if "source_platform_id" not in cols:
         conn.execute("ALTER TABLE platform_targets ADD COLUMN source_platform_id INTEGER")
     if "auto_extracted" not in cols:
         conn.execute("ALTER TABLE platform_targets ADD COLUMN auto_extracted INTEGER DEFAULT 0")
+    if "tense" not in cols:
+        conn.execute("ALTER TABLE platform_targets ADD COLUMN tense TEXT")  # past/future/unknown
     conn.commit()
 
 
@@ -128,6 +144,13 @@ def extract_targets(content: str) -> list[dict]:
                 if tm:
                     time_horizon = tm.group(0)
                     break
+            # 判斷時態
+            if PAST_KEYWORDS.search(sent):
+                tense = "past"  # 過去達成
+            elif FUTURE_KEYWORDS.search(sent):
+                tense = "future"  # 未來承諾
+            else:
+                tense = "unknown"
             out.append(
                 {
                     "title": sent[:80] + ("…" if len(sent) > 80 else ""),
@@ -136,6 +159,7 @@ def extract_targets(content: str) -> list[dict]:
                     "metric_unit": unit,
                     "time_horizon": time_horizon,
                     "topic": topic,
+                    "tense": tense,
                 }
             )
             break  # 一句話只抽第一個量化承諾
@@ -200,8 +224,8 @@ def main():
                 """INSERT INTO platform_targets
                    (person_name, election_id, category, title, description,
                     metric_unit, target_value, target_date, status,
-                    auto_extracted, source_platform_id)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'in_progress', 1, ?)""",
+                    auto_extracted, source_platform_id, tense)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'in_progress', 1, ?, ?)""",
                 (
                     r["person_name"],
                     r["election_id"],
@@ -210,8 +234,9 @@ def main():
                     t["description"],
                     t["metric_unit"],
                     t["target_value"],
-                    None,  # target_date — could parse from time_horizon
+                    None,
                     r["platform_id"],
+                    t["tense"],
                 ),
             )
             total_targets += 1
