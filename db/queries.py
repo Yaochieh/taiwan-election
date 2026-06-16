@@ -869,6 +869,77 @@ def _compute_party_list_seats(conn, election_id: int, total_seats: int = 34) -> 
     return {p: s for p, s in base.items() if s > 0}
 
 
+def get_presidential_county_winners() -> list[dict]:
+    """歷屆總統選舉各縣市勝出政黨。
+
+    1996-2024 共 8 屆 × 22 縣市 = 176 筆。回傳 {year, county, party, color_hex, pct}。
+    """
+    with get_connection() as conn:
+        rows = conn.execute("""
+            WITH per_county AS (
+                SELECT strftime('%Y', e.date) AS year,
+                       er.district AS county,
+                       c.name AS candidate,
+                       COALESCE(p.name, '無黨籍') AS party,
+                       p.color_hex,
+                       er.votes,
+                       SUM(er.votes) OVER (PARTITION BY e.election_id, er.district) AS county_total,
+                       RANK() OVER (
+                           PARTITION BY e.election_id, er.district
+                           ORDER BY er.votes DESC
+                       ) AS rk
+                FROM election_results er
+                JOIN candidates c ON er.candidate_id = c.candidate_id
+                JOIN elections e ON er.election_id = e.election_id
+                LEFT JOIN parties p ON c.party_id = p.party_id
+                WHERE e.type='presidential'
+                  AND er.district != '全國'
+                  AND er.district NOT LIKE '地區(0%'
+                  AND COALESCE(c.background, '正總統') != '副總統'
+            )
+            SELECT year, county, party, color_hex,
+                   ROUND(votes * 100.0 / NULLIF(county_total, 0), 2) AS pct
+            FROM per_county
+            WHERE rk = 1
+            ORDER BY year, county
+        """).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_mayoral_county_winners() -> list[dict]:
+    """歷屆縣市長選舉各縣市勝出政黨。"""
+    with get_connection() as conn:
+        rows = conn.execute("""
+            WITH per_county AS (
+                SELECT strftime('%Y', e.date) AS year,
+                       er.district AS county,
+                       c.name AS candidate,
+                       COALESCE(p.name, '無黨籍') AS party,
+                       p.color_hex,
+                       er.votes,
+                       SUM(er.votes) OVER (PARTITION BY e.election_id, er.district) AS county_total,
+                       RANK() OVER (
+                           PARTITION BY e.election_id, er.district
+                           ORDER BY er.votes DESC
+                       ) AS rk
+                FROM election_results er
+                JOIN candidates c ON er.candidate_id = c.candidate_id
+                JOIN elections e ON er.election_id = e.election_id
+                LEFT JOIN parties p ON c.party_id = p.party_id
+                WHERE e.type='mayoral'
+                  AND er.district != '全國'
+                  AND er.district NOT LIKE '地區%'
+                  AND (e.description IS NULL OR e.description = '')
+            )
+            SELECT year, county, candidate, party, color_hex,
+                   ROUND(votes * 100.0 / NULLIF(county_total, 0), 2) AS pct
+            FROM per_county
+            WHERE rk = 1
+            ORDER BY year, county
+        """).fetchall()
+        return [dict(r) for r in rows]
+
+
 def get_legislative_trend() -> list[dict]:
     """歷屆立委選舉各黨席次（區域+原住民+不分區）。
 
