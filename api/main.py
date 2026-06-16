@@ -57,6 +57,7 @@ if photos_dir.exists():
     app.mount("/static/candidate_photos", StaticFiles(directory=photos_dir), name="candidate_photos")
 
 
+
 @app.get("/health", tags=["meta"])
 def health():
     return {"status": "ok", "version": "0.2.0"}

@@ -123,6 +123,8 @@ class Platform(BaseModel):
     candidate_name: str | None = None
     party_name: str | None = None
     color_hex: str | None = None
+    source_url: str | None = None
+    note: str | None = None
 
 
 class PlatformSource(BaseModel):

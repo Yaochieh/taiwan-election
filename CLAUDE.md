@@ -61,6 +61,13 @@ data/
    `recut_2024_legislative_columns.py` 用 x 座標重新分欄（已跑過）。
 6. **PaddleOCR 很慢** — 每頁 30–60 秒，每屆全選區公報 OCR 跑 3-6 小時。
    背景跑 + DB 持續寫入；中斷只損失尚未 commit 的 row。
+7. **★ 資料一定標來源** — 任何「補資料」「優化排版」「抓關鍵數字」的
+   動作都要記錄來源 URL／公報檔名／中選會 zip 內路徑。
+   - DB schema：`platforms.source_url`、`candidates.source_url`、
+     `platform_targets.source_url`（沒有就加 column）
+   - 學經歷補：來源寫進 `candidates.background_source`，前端顯示「資料來源 →」
+   - OCR 後的人工潤稿/排版優化要在 `platforms.note` 加 `[人工潤稿 by Claude
+     YYYY-MM-DD]`，避免之後分不出來。
 
 ## 關鍵 SQL 查詢 pattern
 

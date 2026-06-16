@@ -1069,7 +1069,7 @@ def get_platforms_by_election(election_id: int) -> pd.DataFrame:
             """
             SELECT c.candidate_id, c.name AS candidate_name,
                    p.name AS party_name, p.color_hex,
-                   pl.seq, pl.content
+                   pl.seq, pl.content, pl.source_url, pl.note
             FROM platforms pl
             JOIN candidates c ON pl.candidate_id = c.candidate_id
             LEFT JOIN parties p ON c.party_id = p.party_id
