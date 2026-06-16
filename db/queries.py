@@ -1372,12 +1372,21 @@ def get_topic_stats(topic_name: str) -> dict:
             WHERE t.name = ?
             GROUP BY e.type
         """, (topic_name,)).fetchall()
+        # 政府開放資料來源
+        sources = conn.execute("""
+            SELECT s.label, s.url, s.notes
+            FROM topic_data_sources s
+            JOIN platform_topics t ON s.topic_id = t.topic_id
+            WHERE t.name = ?
+            ORDER BY s.rank
+        """, (topic_name,)).fetchall()
         return {
             "topic": topic_name,
             "by_year": [dict(r) for r in years],
             "by_party": [dict(r) for r in parties],
             "by_person": [dict(r) for r in people],
             "by_type": [dict(r) for r in types],
+            "data_sources": [dict(r) for r in sources],
         }
 
 

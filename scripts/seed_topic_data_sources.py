@@ -80,7 +80,7 @@ SOURCES = [
 
 def main():
     conn = sqlite3.connect(DB_PATH)
-    conn.execute("""
+    conn.executescript("""
         CREATE TABLE IF NOT EXISTS topic_data_sources (
             source_id INTEGER PRIMARY KEY,
             topic_id INTEGER NOT NULL REFERENCES platform_topics(topic_id),
