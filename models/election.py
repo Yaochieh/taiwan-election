@@ -125,6 +125,7 @@ class Platform(BaseModel):
     color_hex: str | None = None
     source_url: str | None = None
     note: str | None = None
+    content_raw: str | None = None
 
 
 class PlatformSource(BaseModel):
