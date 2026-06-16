@@ -17,3 +17,9 @@ def person_profile(name: str):
 def person_targets(name: str):
     """取得該政治人物的政見追蹤目標（含 baseline、target、進度資料點）。"""
     return queries.get_person_targets(name)
+
+
+@router.get("/{name}/topic-distribution")
+def person_topic_distribution(name: str):
+    """該政治人物各主題政見的分布（用於雷達圖）"""
+    return queries.get_person_topic_distribution(name)

@@ -30,3 +30,9 @@ def topic_detail(
 def topic_stats(topic_name: str):
     """主題的彙總統計（年度趨勢、各黨次數、最常提及者）"""
     return queries.get_topic_stats(topic_name)
+
+
+@router.get("/{topic_name}/targets")
+def topic_auto_targets(topic_name: str):
+    """主題下自動抽取的量化承諾"""
+    return queries.get_auto_targets_by_topic(topic_name)

@@ -1337,3 +1337,41 @@ def get_topic_stats(topic_name: str) -> dict:
             "by_person": [dict(r) for r in people],
             "by_type": [dict(r) for r in types],
         }
+
+
+def get_person_topic_distribution(person_name: str) -> list[dict]:
+    """某政治人物各主題政見數量分布（用於雷達圖）"""
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT t.name AS topic, t.icon,
+                   COUNT(DISTINCT p.platform_id) AS n,
+                   SUM(l.score) AS total_score
+            FROM platforms p
+            JOIN candidates c ON p.candidate_id = c.candidate_id
+            JOIN platform_topic_links l ON p.platform_id = l.platform_id
+            JOIN platform_topics t ON l.topic_id = t.topic_id
+            WHERE c.name = ?
+            GROUP BY t.topic_id
+            ORDER BY n DESC
+        """, (person_name,)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_auto_targets_by_topic(topic_name: str) -> list[dict]:
+    """主題的所有量化承諾"""
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT pt.target_id, pt.person_name, pt.title, pt.description,
+                   pt.metric_unit, pt.target_value, pt.election_id,
+                   pt.source_platform_id, pt.status,
+                   e.date AS election_date, e.name AS election_name,
+                   e.type AS election_type, e.description AS election_desc,
+                   pa.name AS party_name, pa.color_hex
+            FROM platform_targets pt
+            LEFT JOIN elections e ON pt.election_id = e.election_id
+            LEFT JOIN candidates c ON c.name = pt.person_name AND c.election_id = pt.election_id
+            LEFT JOIN parties pa ON c.party_id = pa.party_id
+            WHERE pt.auto_extracted = 1 AND pt.category = ?
+            ORDER BY pt.target_value DESC
+        """, (topic_name,)).fetchall()
+        return [dict(r) for r in rows]
