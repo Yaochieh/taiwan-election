@@ -61,7 +61,33 @@ data/
    `recut_2024_legislative_columns.py` 用 x 座標重新分欄（已跑過）。
 6. **PaddleOCR 很慢** — 每頁 30–60 秒，每屆全選區公報 OCR 跑 3-6 小時。
    背景跑 + DB 持續寫入；中斷只損失尚未 commit 的 row。
-7. **★ 資料一定標來源** — 任何「補資料」「優化排版」「抓關鍵數字」的
+7. **★ 地名變遷對照表** — 比較跨年資料前一定要先 normalize：
+
+   | 現代名 | 歷史名 | 升格 / 改名年 |
+   |---|---|---|
+   | 新北市 | 臺北縣 | 2010-12-25 升格 |
+   | 桃園市 | 桃園縣 | 2014-12-25 升格 |
+   | 臺中市 | 臺中縣 + 臺中市（省轄） | 2010-12-25 縣市合併 |
+   | 臺南市 | 臺南縣 + 臺南市（省轄） | 2010-12-25 縣市合併 |
+   | 高雄市 | 高雄縣 + 高雄市（直轄） | 2010-12-25 縣市合併 |
+   | 臺北市 | 臺北市（省轄→直轄） | 1967-07-01 升格 |
+   | 連江縣 | — | 一直叫連江縣（馬祖） |
+
+   ★ 跨年熱力圖／政黨版圖／長條比較圖一定要套這張表。
+   - 後端：`get_presidential_county_winners()` / `get_mayoral_county_winners()`
+     已用 CASE WHEN 在 SQL 層 normalize；
+   - 前端：`/parties/[name]` 的「縣市政治版圖」用 `COUNTY_MERGE` map；
+   - 注意：1967 年前的「臺北市」≠ 現在臺北市範圍（含士林/北投/南港/內湖/景美/木柵 6 鄉鎮是1967 合併進來的），有總統選舉前後可能要再細分但目前不處理。
+
+8. **★ 總統選舉每組正副各有獨立 row** — `election_results` 對總統選舉
+   每位 candidate（正、副都算）都有一筆每縣市票數，且兩人票數相同。
+   - 計算縣市總票數時，**必須過濾 `c.background='副總統'`**，否則票數會
+     ×2。
+   - 前端 `vote-map.tsx` 的 `focusByCounty` 和 `winnerByCounty` 都要小心；
+     `winnerByCounty` 用「同票同黨 dedup」對也算過濾掉，`focusByCounty`
+     需明確 `filter(r => r.background !== '副總統')`。
+
+9. **★ 資料一定標來源** — 任何「補資料」「優化排版」「抓關鍵數字」的
    動作都要記錄來源 URL／公報檔名／中選會 zip 內路徑。
    - DB schema：`platforms.source_url`、`candidates.source_url`、
      `platform_targets.source_url`（沒有就加 column）
