@@ -264,7 +264,15 @@ def get_presidential_vote_trend() -> pd.DataFrame:
             """
             SELECT e.date, c.name AS candidate_name,
                    p.name AS party_name,
-                   SUM(er.votes) AS votes
+                   -- 若有「全國」摘要列用它（已是總票）；否則 SUM 縣市
+                   COALESCE(
+                     SUM(CASE
+                       WHEN er.district='全國' OR er.district LIKE '地區(0%' THEN er.votes
+                     END),
+                     SUM(CASE
+                       WHEN er.district!='全國' AND er.district NOT LIKE '地區(0%' THEN er.votes
+                     END)
+                   ) AS votes
             FROM election_results er
             JOIN candidates c ON er.candidate_id = c.candidate_id
             JOIN elections e ON er.election_id = e.election_id
