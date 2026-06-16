@@ -494,6 +494,15 @@ def get_person_profile(name: str) -> dict:
             if r["background"] and not background:
                 background = r["background"]
 
+        # 維基百科補的資料（同姓名取最新）
+        bg_source_row = conn.execute(
+            "SELECT background_source FROM candidates "
+            "WHERE name=? AND background_source IS NOT NULL "
+            "ORDER BY candidate_id DESC LIMIT 1",
+            (name,),
+        ).fetchone()
+        background_source = bg_source_row["background_source"] if bg_source_row else None
+
         races = []
         seen_keys = set()
         for r in candidate_rows:
@@ -557,6 +566,7 @@ def get_person_profile(name: str) -> dict:
             "name": name,
             "photo_path": photo,
             "background": background,
+            "background_source": background_source,
             "total_races": total_races,
             "total_wins": total_wins,
             "win_rate": total_wins / total_races if total_races > 0 else 0,

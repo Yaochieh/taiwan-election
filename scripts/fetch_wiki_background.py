@@ -20,6 +20,8 @@ from pathlib import Path
 
 DB = Path(__file__).parent.parent / "data" / "db.sqlite"
 API = "https://zh.wikipedia.org/w/api.php"
+REST_API = "https://zh.wikipedia.org/api/rest_v1/page/summary"
+SLEEP = 1.2  # 提高 sleep 避免 429
 
 
 def fetch_summary(title: str) -> tuple[str, str] | None:
@@ -87,8 +89,13 @@ def main():
         ]
         result = None
         for t in titles:
-            result = fetch_summary(t)
-            time.sleep(0.4)  # rate limit
+            for attempt in range(3):
+                result = fetch_summary(t)
+                time.sleep(SLEEP)
+                if result:
+                    break
+                # 若上次是 429，多睡一點
+                time.sleep(SLEEP * (attempt + 1))
             if result:
                 break
         if not result:
