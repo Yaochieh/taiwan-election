@@ -926,18 +926,21 @@ def get_mayoral_county_winners() -> list[dict]:
     """歷屆縣市長選舉各縣市勝出政黨。"""
     with get_connection() as conn:
         rows = conn.execute("""
-            WITH per_county AS (
+            WITH normalized AS (
                 SELECT strftime('%Y', e.date) AS year,
-                       er.district AS county,
+                       e.election_id,
+                       CASE er.district
+                         WHEN '臺北縣' THEN '新北市'
+                         WHEN '桃園縣' THEN '桃園市'
+                         WHEN '臺中縣' THEN '臺中市'
+                         WHEN '臺南縣' THEN '臺南市'
+                         WHEN '高雄縣' THEN '高雄市'
+                         ELSE er.district
+                       END AS county,
                        c.name AS candidate,
                        COALESCE(p.name, '無黨籍') AS party,
                        p.color_hex,
-                       er.votes,
-                       SUM(er.votes) OVER (PARTITION BY e.election_id, er.district) AS county_total,
-                       RANK() OVER (
-                           PARTITION BY e.election_id, er.district
-                           ORDER BY er.votes DESC
-                       ) AS rk
+                       er.votes
                 FROM election_results er
                 JOIN candidates c ON er.candidate_id = c.candidate_id
                 JOIN elections e ON er.election_id = e.election_id
@@ -946,6 +949,19 @@ def get_mayoral_county_winners() -> list[dict]:
                   AND er.district != '全國'
                   AND er.district NOT LIKE '地區%'
                   AND (e.description IS NULL OR e.description = '')
+            ),
+            -- 同一年同一縣市合併縣市票（高雄縣+高雄市等）
+            agg AS (
+                SELECT year, election_id, county, candidate, party, color_hex,
+                       SUM(votes) AS votes
+                FROM normalized
+                GROUP BY year, county, candidate
+            ),
+            per_county AS (
+                SELECT year, county, candidate, party, color_hex, votes,
+                       SUM(votes) OVER (PARTITION BY year, county) AS county_total,
+                       RANK() OVER (PARTITION BY year, county ORDER BY votes DESC) AS rk
+                FROM agg
             )
             SELECT year, county, candidate, party, color_hex,
                    ROUND(votes * 100.0 / NULLIF(county_total, 0), 2) AS pct
