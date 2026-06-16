@@ -1204,3 +1204,136 @@ def get_township_results(election_id: int, county: str | None = None) -> list[di
     with get_connection() as conn:
         df = pd.read_sql_query(sql, conn, params=params)
     return df.to_dict(orient="records")
+
+
+def list_platform_topics() -> list[dict]:
+    """所有主題與政見數量"""
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT t.topic_id, t.name, t.icon, t.rank,
+                   COUNT(DISTINCT l.platform_id) AS platform_count
+            FROM platform_topics t
+            LEFT JOIN platform_topic_links l ON t.topic_id = l.topic_id
+            GROUP BY t.topic_id
+            ORDER BY t.rank, platform_count DESC
+        """).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_topic_platforms(
+    topic_name: str,
+    *,
+    election_type: str | None = None,
+    party: str | None = None,
+    person: str | None = None,
+    year_from: int | None = None,
+    year_to: int | None = None,
+) -> list[dict]:
+    """主題下的政見列表（含篩選）"""
+    sql = """
+        SELECT p.platform_id, p.content, l.score,
+               c.candidate_id, c.name AS candidate_name,
+               e.election_id, e.date AS election_date, e.name AS election_name,
+               e.type AS election_type, e.description AS election_desc,
+               COALESCE(er.district, c.district) AS district,
+               pa.name AS party_name, pa.color_hex
+        FROM platform_topic_links l
+        JOIN platform_topics t ON l.topic_id = t.topic_id
+        JOIN platforms p ON l.platform_id = p.platform_id
+        JOIN candidates c ON p.candidate_id = c.candidate_id
+        JOIN elections e ON p.election_id = e.election_id
+        LEFT JOIN parties pa ON c.party_id = pa.party_id
+        LEFT JOIN election_results er
+            ON er.candidate_id = c.candidate_id AND er.election_id = e.election_id
+            AND er.district NOT LIKE '地區(0%' AND er.district != '全國'
+        WHERE t.name = ?
+    """
+    params: list = [topic_name]
+    if election_type:
+        sql += " AND e.type = ?"
+        params.append(election_type)
+    if party:
+        sql += " AND pa.name = ?"
+        params.append(party)
+    if person:
+        sql += " AND c.name = ?"
+        params.append(person)
+    if year_from:
+        sql += " AND strftime('%Y', e.date) >= ?"
+        params.append(str(year_from))
+    if year_to:
+        sql += " AND strftime('%Y', e.date) <= ?"
+        params.append(str(year_to))
+    sql += " ORDER BY e.date DESC, l.score DESC LIMIT 500"
+    with get_connection() as conn:
+        rows = conn.execute(sql, params).fetchall()
+        # 去除 district 重複（presidential 會有 22 縣市）
+        seen = set()
+        out = []
+        for r in rows:
+            key = (r["platform_id"], r["candidate_id"], r["election_id"])
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(dict(r))
+        return out
+
+
+def get_topic_stats(topic_name: str) -> dict:
+    """主題彙總統計"""
+    with get_connection() as conn:
+        # 年度政見次數
+        years = conn.execute("""
+            SELECT strftime('%Y', e.date) AS year, COUNT(DISTINCT p.platform_id) AS n
+            FROM platform_topic_links l
+            JOIN platforms p ON l.platform_id = p.platform_id
+            JOIN platform_topics t ON l.topic_id = t.topic_id
+            JOIN elections e ON p.election_id = e.election_id
+            WHERE t.name = ?
+            GROUP BY year ORDER BY year
+        """, (topic_name,)).fetchall()
+        # 各政黨次數
+        parties = conn.execute("""
+            SELECT COALESCE(pa.name, '無黨籍') AS party, pa.color_hex,
+                   COUNT(DISTINCT p.platform_id) AS n
+            FROM platform_topic_links l
+            JOIN platforms p ON l.platform_id = p.platform_id
+            JOIN platform_topics t ON l.topic_id = t.topic_id
+            JOIN candidates c ON p.candidate_id = c.candidate_id
+            LEFT JOIN parties pa ON c.party_id = pa.party_id
+            WHERE t.name = ?
+            GROUP BY pa.party_id ORDER BY n DESC LIMIT 20
+        """, (topic_name,)).fetchall()
+        # 最常提及該主題的候選人
+        people = conn.execute("""
+            SELECT c.name, COALESCE(pa.name, '無黨籍') AS party, pa.color_hex,
+                   COUNT(DISTINCT e.election_id) AS times,
+                   SUM(l.score) AS total_score
+            FROM platform_topic_links l
+            JOIN platforms p ON l.platform_id = p.platform_id
+            JOIN platform_topics t ON l.topic_id = t.topic_id
+            JOIN candidates c ON p.candidate_id = c.candidate_id
+            JOIN elections e ON p.election_id = e.election_id
+            LEFT JOIN parties pa ON c.party_id = pa.party_id
+            WHERE t.name = ?
+            GROUP BY c.name
+            HAVING times >= 1
+            ORDER BY times DESC, total_score DESC LIMIT 20
+        """, (topic_name,)).fetchall()
+        # 各選舉類型
+        types = conn.execute("""
+            SELECT e.type, COUNT(DISTINCT p.platform_id) AS n
+            FROM platform_topic_links l
+            JOIN platforms p ON l.platform_id = p.platform_id
+            JOIN platform_topics t ON l.topic_id = t.topic_id
+            JOIN elections e ON p.election_id = e.election_id
+            WHERE t.name = ?
+            GROUP BY e.type
+        """, (topic_name,)).fetchall()
+        return {
+            "topic": topic_name,
+            "by_year": [dict(r) for r in years],
+            "by_party": [dict(r) for r in parties],
+            "by_person": [dict(r) for r in people],
+            "by_type": [dict(r) for r in types],
+        }

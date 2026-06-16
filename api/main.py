@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from db.queries import init_db
-from api.routers import elections, candidates, parties, platforms, trends, mayoral, legislature, search, people
+from api.routers import elections, candidates, parties, platforms, trends, mayoral, legislature, search, people, topics
 
 
 @asynccontextmanager
@@ -44,6 +44,7 @@ app.include_router(mayoral.router, prefix="/mayoral", tags=["mayoral"])
 app.include_router(legislature.router, prefix="/legislature", tags=["legislature"])
 app.include_router(search.router, prefix="/search", tags=["search"])
 app.include_router(people.router, prefix="/people", tags=["people"])
+app.include_router(topics.router, prefix="/topics", tags=["topics"])
 
 # 公報圖檔以靜態資源開放（給前端 <img> 用）
 images_dir = Path(__file__).parent.parent / "data" / "bulletin_images"
