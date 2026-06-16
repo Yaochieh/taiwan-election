@@ -872,22 +872,25 @@ def _compute_party_list_seats(conn, election_id: int, total_seats: int = 34) -> 
 def get_presidential_county_winners() -> list[dict]:
     """歷屆總統選舉各縣市勝出政黨。
 
-    1996-2024 共 8 屆 × 22 縣市 = 176 筆。回傳 {year, county, party, color_hex, pct}。
+    1996-2008 用舊縣（臺北縣/桃園縣/臺中縣/臺南縣/高雄縣），合併到對應
+    現直轄市顯示（北縣→新北、桃縣→桃園、中縣+中市→臺中、南縣+南市→臺南、
+    高縣+高市→高雄），這樣熱力圖整列都有資料。
     """
     with get_connection() as conn:
         rows = conn.execute("""
-            WITH per_county AS (
+            WITH normalized AS (
                 SELECT strftime('%Y', e.date) AS year,
-                       er.district AS county,
-                       c.name AS candidate,
+                       CASE er.district
+                         WHEN '臺北縣' THEN '新北市'
+                         WHEN '桃園縣' THEN '桃園市'
+                         WHEN '臺中縣' THEN '臺中市'
+                         WHEN '臺南縣' THEN '臺南市'
+                         WHEN '高雄縣' THEN '高雄市'
+                         ELSE er.district
+                       END AS county,
+                       c.candidate_id, c.name AS candidate,
                        COALESCE(p.name, '無黨籍') AS party,
-                       p.color_hex,
-                       er.votes,
-                       SUM(er.votes) OVER (PARTITION BY e.election_id, er.district) AS county_total,
-                       RANK() OVER (
-                           PARTITION BY e.election_id, er.district
-                           ORDER BY er.votes DESC
-                       ) AS rk
+                       p.color_hex, er.votes
                 FROM election_results er
                 JOIN candidates c ON er.candidate_id = c.candidate_id
                 JOIN elections e ON er.election_id = e.election_id
@@ -896,6 +899,19 @@ def get_presidential_county_winners() -> list[dict]:
                   AND er.district != '全國'
                   AND er.district NOT LIKE '地區(0%'
                   AND COALESCE(c.background, '正總統') != '副總統'
+            ),
+            agg AS (
+                SELECT year, county, candidate_id, candidate, party, color_hex,
+                       SUM(votes) AS votes
+                FROM normalized
+                GROUP BY year, county, candidate_id
+            ),
+            per_county AS (
+                SELECT year, county, candidate, party, color_hex, votes,
+                       SUM(votes) OVER (PARTITION BY year, county) AS county_total,
+                       RANK() OVER (PARTITION BY year, county
+                                    ORDER BY votes DESC) AS rk
+                FROM agg
             )
             SELECT year, county, party, color_hex,
                    ROUND(votes * 100.0 / NULLIF(county_total, 0), 2) AS pct
