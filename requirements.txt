@@ -11,3 +11,4 @@ matplotlib
 plotly
 pdfplumber
 PyMuPDF
+anthropic>=0.40
