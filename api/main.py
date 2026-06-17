@@ -56,6 +56,11 @@ photos_dir = Path(__file__).parent.parent / "data" / "candidate_photos"
 if photos_dir.exists():
     app.mount("/static/candidate_photos", StaticFiles(directory=photos_dir), name="candidate_photos")
 
+# 公報整頁 OCR 圖（page_ocr source 用）
+pages_dir = Path(__file__).parent.parent / "data" / "bulletin_pages"
+if pages_dir.exists():
+    app.mount("/static/bulletin_pages", StaticFiles(directory=pages_dir), name="bulletin_pages")
+
 
 
 @app.get("/health", tags=["meta"])
