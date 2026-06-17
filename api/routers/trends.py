@@ -21,12 +21,14 @@ def party_list_trend():
 
 
 @router.get("/presidential/county-winners")
-def presidential_county_winners():
-    """歷屆總統選舉各縣市勝出政黨（用於熱力圖）"""
-    return queries.get_presidential_county_winners()
+def presidential_county_winners(merge_old: bool = True):
+    """歷屆總統選舉各縣市勝出政黨（用於熱力圖）。
+    merge_old=True 把舊縣（高雄縣等）合併到升格後直轄市。"""
+    return queries.get_presidential_county_winners(merge_old)
 
 
 @router.get("/mayoral/county-winners")
-def mayoral_county_winners():
-    """歷屆縣市長選舉各縣市勝出政黨（用於熱力圖）"""
-    return queries.get_mayoral_county_winners()
+def mayoral_county_winners(merge_old: bool = True):
+    """歷屆縣市長選舉各縣市勝出政黨（用於熱力圖）。
+    merge_old=True 把舊縣（高雄縣等）合併到升格後直轄市。"""
+    return queries.get_mayoral_county_winners(merge_old)

@@ -879,25 +879,26 @@ def _compute_party_list_seats(conn, election_id: int, total_seats: int = 34) -> 
     return {p: s for p, s in base.items() if s > 0}
 
 
-def get_presidential_county_winners() -> list[dict]:
+def get_presidential_county_winners(merge_old_counties: bool = True) -> list[dict]:
     """歷屆總統選舉各縣市勝出政黨。
 
-    1996-2008 用舊縣（臺北縣/桃園縣/臺中縣/臺南縣/高雄縣），合併到對應
-    現直轄市顯示（北縣→新北、桃縣→桃園、中縣+中市→臺中、南縣+南市→臺南、
-    高縣+高市→高雄），這樣熱力圖整列都有資料。
+    `merge_old_counties=True`：把升格前的舊縣（臺北縣/桃園縣/臺中縣/臺南縣/
+    高雄縣）合併到升格後直轄市，方便跨年比較。
+    `merge_old_counties=False`：保留原始名（高雄縣/高雄市等仍然分開顯示）。
     """
-    with get_connection() as conn:
-        rows = conn.execute("""
-            WITH normalized AS (
-                SELECT strftime('%Y', e.date) AS year,
-                       CASE er.district
+    case_clause = """CASE er.district
                          WHEN '臺北縣' THEN '新北市'
                          WHEN '桃園縣' THEN '桃園市'
                          WHEN '臺中縣' THEN '臺中市'
                          WHEN '臺南縣' THEN '臺南市'
                          WHEN '高雄縣' THEN '高雄市'
                          ELSE er.district
-                       END AS county,
+                       END""" if merge_old_counties else "er.district"
+    with get_connection() as conn:
+        rows = conn.execute(f"""
+            WITH normalized AS (
+                SELECT strftime('%Y', e.date) AS year,
+                       {case_clause} AS county,
                        c.candidate_id, c.name AS candidate,
                        COALESCE(p.name, '無黨籍') AS party,
                        p.color_hex, er.votes
@@ -932,21 +933,26 @@ def get_presidential_county_winners() -> list[dict]:
         return [dict(r) for r in rows]
 
 
-def get_mayoral_county_winners() -> list[dict]:
-    """歷屆縣市長選舉各縣市勝出政黨。"""
-    with get_connection() as conn:
-        rows = conn.execute("""
-            WITH normalized AS (
-                SELECT strftime('%Y', e.date) AS year,
-                       e.election_id,
-                       CASE er.district
+def get_mayoral_county_winners(merge_old_counties: bool = True) -> list[dict]:
+    """歷屆縣市長選舉各縣市勝出政黨。
+
+    `merge_old_counties=True`：把升格前的舊縣合併到升格後直轄市。
+    `merge_old_counties=False`：保留原始名稱分開顯示。
+    """
+    case_clause = """CASE er.district
                          WHEN '臺北縣' THEN '新北市'
                          WHEN '桃園縣' THEN '桃園市'
                          WHEN '臺中縣' THEN '臺中市'
                          WHEN '臺南縣' THEN '臺南市'
                          WHEN '高雄縣' THEN '高雄市'
                          ELSE er.district
-                       END AS county,
+                       END""" if merge_old_counties else "er.district"
+    with get_connection() as conn:
+        rows = conn.execute(f"""
+            WITH normalized AS (
+                SELECT strftime('%Y', e.date) AS year,
+                       e.election_id,
+                       {case_clause} AS county,
                        c.name AS candidate,
                        COALESCE(p.name, '無黨籍') AS party,
                        p.color_hex,
