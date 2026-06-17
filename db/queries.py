@@ -1421,6 +1421,7 @@ def get_auto_targets_by_topic(topic_name: str) -> list[dict]:
             SELECT pt.target_id, pt.person_name, pt.title, pt.description,
                    pt.metric_unit, pt.target_value, pt.election_id,
                    pt.source_platform_id, pt.status,
+                   pt.tense, pt.verification_status,
                    e.date AS election_date, e.name AS election_name,
                    e.type AS election_type, e.description AS election_desc,
                    pa.name AS party_name, pa.color_hex
@@ -1429,6 +1430,7 @@ def get_auto_targets_by_topic(topic_name: str) -> list[dict]:
             LEFT JOIN candidates c ON c.name = pt.person_name AND c.election_id = pt.election_id
             LEFT JOIN parties pa ON c.party_id = pa.party_id
             WHERE pt.auto_extracted = 1 AND pt.category = ?
-            ORDER BY pt.target_value DESC
+              AND pt.target_value IS NOT NULL
+            ORDER BY (pt.tense='future') DESC, pt.target_value DESC
         """, (topic_name,)).fetchall()
         return [dict(r) for r in rows]
