@@ -503,9 +503,10 @@ def get_person_profile(name: str) -> dict:
         ).fetchone()
         background_source = bg_source_row["background_source"] if bg_source_row else None
 
-        # 立法院官方學經歷（同姓名取最新一屆）
+        # 立法院官方學經歷 + 問政數據（同姓名取最新一屆）
         official_row = conn.execute(
-            "SELECT edu_official, career_official, committees_official, official_source "
+            "SELECT edu_official, career_official, committees_official, official_source, "
+            "       proposals_count, interpellations_count "
             "FROM candidates WHERE name=? AND edu_official IS NOT NULL "
             "ORDER BY candidate_id DESC LIMIT 1",
             (name,),
@@ -580,6 +581,8 @@ def get_person_profile(name: str) -> dict:
             "career_official": official["career_official"] if official else None,
             "committees_official": official["committees_official"] if official else None,
             "official_source": official["official_source"] if official else None,
+            "proposals_count": official["proposals_count"] if official else None,
+            "interpellations_count": official["interpellations_count"] if official else None,
             "total_races": total_races,
             "total_wins": total_wins,
             "win_rate": total_wins / total_races if total_races > 0 else 0,
