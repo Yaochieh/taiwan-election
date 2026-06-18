@@ -33,6 +33,39 @@ def _attention(keywords: list[str]) -> dict:
     }
 
 
+@router.get("/overview")
+def issue_overview():
+    """14 主題政治關注度排名（低 = 潛在缺口）。"""
+    with get_connection() as conn:
+        total = conn.execute(
+            "SELECT COUNT(DISTINCT candidate_id) FROM platforms"
+        ).fetchone()[0]
+        rows = conn.execute(
+            """SELECT t.name, t.icon,
+                      COUNT(DISTINCT l.platform_id) AS platforms,
+                      COUNT(DISTINCT c.name) AS people
+               FROM platform_topics t
+               LEFT JOIN platform_topic_links l ON l.topic_id = t.topic_id
+               LEFT JOIN platforms p ON p.platform_id = l.platform_id
+               LEFT JOIN candidates c ON c.candidate_id = p.candidate_id
+               GROUP BY t.topic_id
+               ORDER BY platforms ASC"""
+        ).fetchall()
+    return {
+        "total_people": total,
+        "topics": [
+            {
+                "name": r["name"],
+                "icon": r["icon"],
+                "platforms": r["platforms"],
+                "people": r["people"],
+                "pct": round(r["people"] / total * 100, 1) if total else 0,
+            }
+            for r in rows
+        ],
+    }
+
+
 @router.get("/fertility")
 def fertility_gap():
     """少子化議題缺口：出生數趨勢 + 政治關注度。"""
