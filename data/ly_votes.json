@@ -1,0 +1,1656 @@
+{
+ "per_legislator": {
+  "11|傅崐萁": {
+   "votes": 914,
+   "agree": 687,
+   "against": 211,
+   "abstain": 16
+  },
+  "11|林沛祥": {
+   "votes": 925,
+   "agree": 698,
+   "against": 211,
+   "abstain": 16
+  },
+  "11|許宇甄": {
+   "votes": 921,
+   "agree": 692,
+   "against": 213,
+   "abstain": 16
+  },
+  "11|謝龍介": {
+   "votes": 919,
+   "agree": 694,
+   "against": 208,
+   "abstain": 17
+  },
+  "11|涂權吉": {
+   "votes": 922,
+   "agree": 696,
+   "against": 211,
+   "abstain": 15
+  },
+  "11|馬文君": {
+   "votes": 922,
+   "agree": 696,
+   "against": 210,
+   "abstain": 16
+  },
+  "11|李貞秀": {
+   "votes": 21,
+   "agree": 15,
+   "against": 6,
+   "abstain": 0
+  },
+  "11|蔡春綢": {
+   "votes": 35,
+   "agree": 24,
+   "against": 11,
+   "abstain": 0
+  },
+  "11|劉書彬": {
+   "votes": 322,
+   "agree": 200,
+   "against": 120,
+   "abstain": 2
+  },
+  "11|洪毓祥": {
+   "votes": 40,
+   "agree": 27,
+   "against": 13,
+   "abstain": 0
+  },
+  "11|陳昭姿": {
+   "votes": 570,
+   "agree": 369,
+   "against": 190,
+   "abstain": 11
+  },
+  "11|陳清龍": {
+   "votes": 40,
+   "agree": 27,
+   "against": 13,
+   "abstain": 0
+  },
+  "11|王安祥": {
+   "votes": 40,
+   "agree": 27,
+   "against": 13,
+   "abstain": 0
+  },
+  "11|邱慧洳": {
+   "votes": 34,
+   "agree": 24,
+   "against": 10,
+   "abstain": 0
+  },
+  "11|高金素梅": {
+   "votes": 799,
+   "agree": 578,
+   "against": 203,
+   "abstain": 18
+  },
+  "11|林思銘": {
+   "votes": 910,
+   "agree": 690,
+   "against": 203,
+   "abstain": 17
+  },
+  "11|邱若華": {
+   "votes": 921,
+   "agree": 697,
+   "against": 208,
+   "abstain": 16
+  },
+  "11|鄭天財Sra Kacaw": {
+   "votes": 929,
+   "agree": 699,
+   "against": 214,
+   "abstain": 16
+  },
+  "11|鄭正鈐": {
+   "votes": 925,
+   "agree": 698,
+   "against": 211,
+   "abstain": 16
+  },
+  "11|謝衣鳯": {
+   "votes": 874,
+   "agree": 658,
+   "against": 196,
+   "abstain": 20
+  },
+  "11|張嘉郡": {
+   "votes": 903,
+   "agree": 687,
+   "against": 200,
+   "abstain": 16
+  },
+  "11|洪孟楷": {
+   "votes": 905,
+   "agree": 683,
+   "against": 206,
+   "abstain": 16
+  },
+  "11|王鴻薇": {
+   "votes": 925,
+   "agree": 696,
+   "against": 213,
+   "abstain": 16
+  },
+  "11|呂玉玲": {
+   "votes": 898,
+   "agree": 678,
+   "against": 203,
+   "abstain": 17
+  },
+  "11|陳雪生": {
+   "votes": 855,
+   "agree": 657,
+   "against": 182,
+   "abstain": 16
+  },
+  "11|黃建賓": {
+   "votes": 922,
+   "agree": 696,
+   "against": 210,
+   "abstain": 16
+  },
+  "11|黃健豪": {
+   "votes": 905,
+   "agree": 683,
+   "against": 206,
+   "abstain": 16
+  },
+  "11|葉元之": {
+   "votes": 921,
+   "agree": 694,
+   "against": 215,
+   "abstain": 12
+  },
+  "11|陳永康": {
+   "votes": 929,
+   "agree": 700,
+   "against": 213,
+   "abstain": 16
+  },
+  "11|賴士葆": {
+   "votes": 922,
+   "agree": 694,
+   "against": 213,
+   "abstain": 15
+  },
+  "11|陳菁徽": {
+   "votes": 923,
+   "agree": 699,
+   "against": 208,
+   "abstain": 16
+  },
+  "11|萬美玲": {
+   "votes": 916,
+   "agree": 692,
+   "against": 208,
+   "abstain": 16
+  },
+  "11|廖偉翔": {
+   "votes": 929,
+   "agree": 699,
+   "against": 214,
+   "abstain": 16
+  },
+  "11|蘇清泉": {
+   "votes": 926,
+   "agree": 698,
+   "against": 212,
+   "abstain": 16
+  },
+  "11|黃仁": {
+   "votes": 925,
+   "agree": 697,
+   "against": 212,
+   "abstain": 16
+  },
+  "11|魯明哲": {
+   "votes": 895,
+   "agree": 679,
+   "against": 200,
+   "abstain": 16
+  },
+  "11|李彥秀": {
+   "votes": 583,
+   "agree": 363,
+   "against": 204,
+   "abstain": 16
+  },
+  "11|吳宗憲": {
+   "votes": 858,
+   "agree": 651,
+   "against": 203,
+   "abstain": 4
+  },
+  "11|邱鎮軍": {
+   "votes": 926,
+   "agree": 696,
+   "against": 214,
+   "abstain": 16
+  },
+  "11|徐欣瑩": {
+   "votes": 929,
+   "agree": 700,
+   "against": 213,
+   "abstain": 16
+  },
+  "11|盧縣一": {
+   "votes": 919,
+   "agree": 695,
+   "against": 207,
+   "abstain": 17
+  },
+  "11|廖先翔": {
+   "votes": 921,
+   "agree": 696,
+   "against": 209,
+   "abstain": 16
+  },
+  "11|陳玉珍": {
+   "votes": 900,
+   "agree": 686,
+   "against": 197,
+   "abstain": 17
+  },
+  "11|林德福": {
+   "votes": 919,
+   "agree": 693,
+   "against": 210,
+   "abstain": 16
+  },
+  "11|楊瓊瓔": {
+   "votes": 925,
+   "agree": 697,
+   "against": 212,
+   "abstain": 16
+  },
+  "11|丁學忠": {
+   "votes": 896,
+   "agree": 684,
+   "against": 196,
+   "abstain": 16
+  },
+  "11|陳超明": {
+   "votes": 838,
+   "agree": 644,
+   "against": 178,
+   "abstain": 16
+  },
+  "11|林倩綺": {
+   "votes": 919,
+   "agree": 691,
+   "against": 212,
+   "abstain": 16
+  },
+  "11|顏寬恒": {
+   "votes": 914,
+   "agree": 691,
+   "against": 207,
+   "abstain": 16
+  },
+  "11|羅明才": {
+   "votes": 928,
+   "agree": 698,
+   "against": 214,
+   "abstain": 16
+  },
+  "11|翁曉玲": {
+   "votes": 923,
+   "agree": 700,
+   "against": 208,
+   "abstain": 15
+  },
+  "11|張智倫": {
+   "votes": 918,
+   "agree": 692,
+   "against": 208,
+   "abstain": 18
+  },
+  "11|羅廷瑋": {
+   "votes": 918,
+   "agree": 694,
+   "against": 210,
+   "abstain": 14
+  },
+  "11|徐巧芯": {
+   "votes": 929,
+   "agree": 699,
+   "against": 214,
+   "abstain": 16
+  },
+  "11|羅智強": {
+   "votes": 930,
+   "agree": 700,
+   "against": 214,
+   "abstain": 16
+  },
+  "11|柯志恩": {
+   "votes": 580,
+   "agree": 361,
+   "against": 203,
+   "abstain": 16
+  },
+  "11|牛煦庭": {
+   "votes": 930,
+   "agree": 700,
+   "against": 214,
+   "abstain": 16
+  },
+  "11|王育敏": {
+   "votes": 923,
+   "agree": 697,
+   "against": 210,
+   "abstain": 16
+  },
+  "11|游顥": {
+   "votes": 906,
+   "agree": 686,
+   "against": 203,
+   "abstain": 17
+  },
+  "11|吳沛憶": {
+   "votes": 888,
+   "agree": 204,
+   "against": 680,
+   "abstain": 4
+  },
+  "11|黃捷": {
+   "votes": 925,
+   "agree": 212,
+   "against": 709,
+   "abstain": 4
+  },
+  "11|范雲": {
+   "votes": 902,
+   "agree": 203,
+   "against": 695,
+   "abstain": 4
+  },
+  "11|蔡其昌": {
+   "votes": 561,
+   "agree": 201,
+   "against": 357,
+   "abstain": 3
+  },
+  "11|莊瑞雄": {
+   "votes": 895,
+   "agree": 203,
+   "against": 688,
+   "abstain": 4
+  },
+  "11|伍麗華Saidhai‧Tahovecahe": {
+   "votes": 919,
+   "agree": 214,
+   "against": 698,
+   "abstain": 7
+  },
+  "11|郭昱晴": {
+   "votes": 580,
+   "agree": 207,
+   "against": 369,
+   "abstain": 4
+  },
+  "11|吳思瑤": {
+   "votes": 924,
+   "agree": 212,
+   "against": 708,
+   "abstain": 4
+  },
+  "11|沈伯洋": {
+   "votes": 906,
+   "agree": 208,
+   "against": 694,
+   "abstain": 4
+  },
+  "11|陳培瑜": {
+   "votes": 922,
+   "agree": 207,
+   "against": 711,
+   "abstain": 4
+  },
+  "11|邱志偉": {
+   "votes": 887,
+   "agree": 203,
+   "against": 680,
+   "abstain": 4
+  },
+  "11|黃秀芳": {
+   "votes": 923,
+   "agree": 213,
+   "against": 706,
+   "abstain": 4
+  },
+  "11|何欣純": {
+   "votes": 885,
+   "agree": 195,
+   "against": 686,
+   "abstain": 4
+  },
+  "11|林俊憲": {
+   "votes": 903,
+   "agree": 204,
+   "against": 695,
+   "abstain": 4
+  },
+  "11|李坤城": {
+   "votes": 919,
+   "agree": 211,
+   "against": 704,
+   "abstain": 4
+  },
+  "11|王義川": {
+   "votes": 747,
+   "agree": 139,
+   "against": 604,
+   "abstain": 4
+  },
+  "11|陳秀寳": {
+   "votes": 927,
+   "agree": 213,
+   "against": 709,
+   "abstain": 5
+  },
+  "11|徐富癸": {
+   "votes": 923,
+   "agree": 212,
+   "against": 707,
+   "abstain": 4
+  },
+  "11|王世堅": {
+   "votes": 878,
+   "agree": 191,
+   "against": 682,
+   "abstain": 5
+  },
+  "11|羅美玲": {
+   "votes": 903,
+   "agree": 200,
+   "against": 699,
+   "abstain": 4
+  },
+  "11|蔡易餘": {
+   "votes": 894,
+   "agree": 201,
+   "against": 689,
+   "abstain": 4
+  },
+  "11|鍾佳濱": {
+   "votes": 920,
+   "agree": 213,
+   "against": 702,
+   "abstain": 5
+  },
+  "11|郭國文": {
+   "votes": 899,
+   "agree": 205,
+   "against": 690,
+   "abstain": 4
+  },
+  "11|陳俊宇": {
+   "votes": 916,
+   "agree": 208,
+   "against": 704,
+   "abstain": 4
+  },
+  "11|張雅琳": {
+   "votes": 919,
+   "agree": 212,
+   "against": 703,
+   "abstain": 4
+  },
+  "11|賴瑞隆": {
+   "votes": 916,
+   "agree": 209,
+   "against": 703,
+   "abstain": 4
+  },
+  "11|陳素月": {
+   "votes": 903,
+   "agree": 206,
+   "against": 693,
+   "abstain": 4
+  },
+  "11|李柏毅": {
+   "votes": 900,
+   "agree": 207,
+   "against": 688,
+   "abstain": 5
+  },
+  "11|陳冠廷": {
+   "votes": 594,
+   "agree": 211,
+   "against": 379,
+   "abstain": 4
+  },
+  "11|陳亭妃": {
+   "votes": 916,
+   "agree": 206,
+   "against": 706,
+   "abstain": 4
+  },
+  "11|王美惠": {
+   "votes": 924,
+   "agree": 212,
+   "against": 708,
+   "abstain": 4
+  },
+  "11|劉建國": {
+   "votes": 893,
+   "agree": 198,
+   "against": 691,
+   "abstain": 4
+  },
+  "11|林岱樺": {
+   "votes": 902,
+   "agree": 206,
+   "against": 692,
+   "abstain": 4
+  },
+  "11|賴惠員": {
+   "votes": 914,
+   "agree": 211,
+   "against": 699,
+   "abstain": 4
+  },
+  "11|林月琴": {
+   "votes": 927,
+   "agree": 213,
+   "against": 710,
+   "abstain": 4
+  },
+  "11|林淑芬": {
+   "votes": 901,
+   "agree": 211,
+   "against": 686,
+   "abstain": 4
+  },
+  "11|王正旭": {
+   "votes": 920,
+   "agree": 209,
+   "against": 707,
+   "abstain": 4
+  },
+  "11|林楚茵": {
+   "votes": 894,
+   "agree": 202,
+   "against": 688,
+   "abstain": 4
+  },
+  "11|王定宇": {
+   "votes": 559,
+   "agree": 195,
+   "against": 361,
+   "abstain": 3
+  },
+  "11|吳琪銘": {
+   "votes": 912,
+   "agree": 209,
+   "against": 699,
+   "abstain": 4
+  },
+  "11|許智傑": {
+   "votes": 912,
+   "agree": 207,
+   "against": 701,
+   "abstain": 4
+  },
+  "11|張宏陸": {
+   "votes": 928,
+   "agree": 213,
+   "against": 711,
+   "abstain": 4
+  },
+  "11|吳秉叡": {
+   "votes": 924,
+   "agree": 212,
+   "against": 708,
+   "abstain": 4
+  },
+  "11|李昆澤": {
+   "votes": 915,
+   "agree": 210,
+   "against": 701,
+   "abstain": 4
+  },
+  "11|柯建銘": {
+   "votes": 457,
+   "agree": 148,
+   "against": 306,
+   "abstain": 3
+  },
+  "11|邱議瑩": {
+   "votes": 884,
+   "agree": 199,
+   "against": 681,
+   "abstain": 4
+  },
+  "11|林宜瑾": {
+   "votes": 907,
+   "agree": 205,
+   "against": 698,
+   "abstain": 4
+  },
+  "11|楊曜": {
+   "votes": 641,
+   "agree": 122,
+   "against": 515,
+   "abstain": 4
+  },
+  "11|蘇巧慧": {
+   "votes": 908,
+   "agree": 208,
+   "against": 696,
+   "abstain": 4
+  },
+  "11|沈發惠": {
+   "votes": 923,
+   "agree": 212,
+   "against": 707,
+   "abstain": 4
+  },
+  "11|林憶君": {
+   "votes": 827,
+   "agree": 649,
+   "against": 168,
+   "abstain": 10
+  },
+  "11|麥玉珍": {
+   "votes": 822,
+   "agree": 649,
+   "against": 163,
+   "abstain": 10
+  },
+  "11|吳春城": {
+   "votes": 529,
+   "agree": 472,
+   "against": 49,
+   "abstain": 8
+  },
+  "11|林國成": {
+   "votes": 835,
+   "agree": 664,
+   "against": 161,
+   "abstain": 10
+  },
+  "11|黃國昌": {
+   "votes": 864,
+   "agree": 674,
+   "against": 179,
+   "abstain": 11
+  },
+  "11|黃珊珊": {
+   "votes": 806,
+   "agree": 633,
+   "against": 162,
+   "abstain": 11
+  },
+  "11|張啓楷": {
+   "votes": 842,
+   "agree": 657,
+   "against": 175,
+   "abstain": 10
+  },
+  "11|陳瑩": {
+   "votes": 909,
+   "agree": 210,
+   "against": 693,
+   "abstain": 6
+  },
+  "11|葛如鈞": {
+   "votes": 527,
+   "agree": 330,
+   "against": 180,
+   "abstain": 17
+  },
+  "11|許忠信": {
+   "votes": 17,
+   "agree": 11,
+   "against": 6,
+   "abstain": 0
+  },
+  "11|江啟臣": {
+   "votes": 32,
+   "agree": 18,
+   "against": 14,
+   "abstain": 0
+  },
+  "11|洪申翰": {
+   "votes": 155,
+   "agree": 69,
+   "against": 86,
+   "abstain": 0
+  },
+  "10|陳椒華": {
+   "votes": 993,
+   "agree": 585,
+   "against": 209,
+   "abstain": 199
+  },
+  "10|羅美玲": {
+   "votes": 1087,
+   "agree": 269,
+   "against": 818,
+   "abstain": 0
+  },
+  "10|莊瑞雄": {
+   "votes": 1011,
+   "agree": 265,
+   "against": 746,
+   "abstain": 0
+  },
+  "10|柯建銘": {
+   "votes": 1140,
+   "agree": 285,
+   "against": 855,
+   "abstain": 0
+  },
+  "10|劉世芳": {
+   "votes": 1129,
+   "agree": 280,
+   "against": 849,
+   "abstain": 0
+  },
+  "10|蔡培慧": {
+   "votes": 165,
+   "agree": 9,
+   "against": 156,
+   "abstain": 0
+  },
+  "10|湯蕙禎": {
+   "votes": 1144,
+   "agree": 285,
+   "against": 859,
+   "abstain": 0
+  },
+  "10|李昆澤": {
+   "votes": 1101,
+   "agree": 255,
+   "against": 846,
+   "abstain": 0
+  },
+  "10|江永昌": {
+   "votes": 1058,
+   "agree": 266,
+   "against": 777,
+   "abstain": 15
+  },
+  "10|洪申翰": {
+   "votes": 1093,
+   "agree": 270,
+   "against": 822,
+   "abstain": 1
+  },
+  "10|何欣純": {
+   "votes": 1064,
+   "agree": 258,
+   "against": 806,
+   "abstain": 0
+  },
+  "10|林宜瑾": {
+   "votes": 1113,
+   "agree": 284,
+   "against": 829,
+   "abstain": 0
+  },
+  "10|陳培瑜": {
+   "votes": 201,
+   "agree": 10,
+   "against": 191,
+   "abstain": 0
+  },
+  "10|趙天麟": {
+   "votes": 808,
+   "agree": 185,
+   "against": 623,
+   "abstain": 0
+  },
+  "10|鍾佳濱": {
+   "votes": 1093,
+   "agree": 277,
+   "against": 816,
+   "abstain": 0
+  },
+  "10|劉櫂豪": {
+   "votes": 787,
+   "agree": 178,
+   "against": 609,
+   "abstain": 0
+  },
+  "10|林靜儀": {
+   "votes": 435,
+   "agree": 59,
+   "against": 376,
+   "abstain": 0
+  },
+  "10|莊競程": {
+   "votes": 1140,
+   "agree": 284,
+   "against": 856,
+   "abstain": 0
+  },
+  "10|余天": {
+   "votes": 803,
+   "agree": 203,
+   "against": 599,
+   "abstain": 1
+  },
+  "10|劉建國": {
+   "votes": 997,
+   "agree": 239,
+   "against": 651,
+   "abstain": 107
+  },
+  "10|吳玉琴": {
+   "votes": 1120,
+   "agree": 280,
+   "against": 839,
+   "abstain": 1
+  },
+  "10|郭國文": {
+   "votes": 1124,
+   "agree": 280,
+   "against": 844,
+   "abstain": 0
+  },
+  "10|林岱樺": {
+   "votes": 1020,
+   "agree": 204,
+   "against": 816,
+   "abstain": 0
+  },
+  "10|陳秀寳": {
+   "votes": 1126,
+   "agree": 285,
+   "against": 841,
+   "abstain": 0
+  },
+  "10|賴品妤": {
+   "votes": 1141,
+   "agree": 282,
+   "against": 859,
+   "abstain": 0
+  },
+  "10|黃秀芳": {
+   "votes": 1108,
+   "agree": 265,
+   "against": 843,
+   "abstain": 0
+  },
+  "10|陳瑩": {
+   "votes": 1099,
+   "agree": 276,
+   "against": 822,
+   "abstain": 1
+  },
+  "10|邱泰源": {
+   "votes": 1142,
+   "agree": 284,
+   "against": 858,
+   "abstain": 0
+  },
+  "10|黃世杰": {
+   "votes": 1145,
+   "agree": 239,
+   "against": 857,
+   "abstain": 49
+  },
+  "10|陳靜敏": {
+   "votes": 311,
+   "agree": 21,
+   "against": 290,
+   "abstain": 0
+  },
+  "10|林淑芬": {
+   "votes": 981,
+   "agree": 238,
+   "against": 645,
+   "abstain": 98
+  },
+  "10|羅致政": {
+   "votes": 1125,
+   "agree": 279,
+   "against": 846,
+   "abstain": 0
+  },
+  "10|陳歐珀": {
+   "votes": 1075,
+   "agree": 280,
+   "against": 795,
+   "abstain": 0
+  },
+  "10|賴惠員": {
+   "votes": 1091,
+   "agree": 280,
+   "against": 811,
+   "abstain": 0
+  },
+  "10|陳明文": {
+   "votes": 933,
+   "agree": 225,
+   "against": 708,
+   "abstain": 0
+  },
+  "10|陳亭妃": {
+   "votes": 960,
+   "agree": 232,
+   "against": 728,
+   "abstain": 0
+  },
+  "10|何志偉": {
+   "votes": 1138,
+   "agree": 286,
+   "against": 852,
+   "abstain": 0
+  },
+  "10|鄭運鵬": {
+   "votes": 1117,
+   "agree": 282,
+   "against": 835,
+   "abstain": 0
+  },
+  "10|張廖萬堅": {
+   "votes": 1141,
+   "agree": 284,
+   "against": 857,
+   "abstain": 0
+  },
+  "10|陳素月": {
+   "votes": 1135,
+   "agree": 282,
+   "against": 853,
+   "abstain": 0
+  },
+  "10|林俊憲": {
+   "votes": 965,
+   "agree": 254,
+   "against": 711,
+   "abstain": 0
+  },
+  "10|吳琪銘": {
+   "votes": 1089,
+   "agree": 277,
+   "against": 812,
+   "abstain": 0
+  },
+  "10|王美惠": {
+   "votes": 1134,
+   "agree": 285,
+   "against": 849,
+   "abstain": 0
+  },
+  "10|張宏陸": {
+   "votes": 1106,
+   "agree": 256,
+   "against": 850,
+   "abstain": 0
+  },
+  "10|吳思瑤": {
+   "votes": 1082,
+   "agree": 284,
+   "against": 798,
+   "abstain": 0
+  },
+  "10|高嘉瑜": {
+   "votes": 1071,
+   "agree": 271,
+   "against": 800,
+   "abstain": 0
+  },
+  "10|邱議瑩": {
+   "votes": 958,
+   "agree": 211,
+   "against": 747,
+   "abstain": 0
+  },
+  "10|范雲": {
+   "votes": 1094,
+   "agree": 282,
+   "against": 812,
+   "abstain": 0
+  },
+  "10|沈發惠": {
+   "votes": 1132,
+   "agree": 281,
+   "against": 851,
+   "abstain": 0
+  },
+  "10|吳秉叡": {
+   "votes": 1113,
+   "agree": 283,
+   "against": 830,
+   "abstain": 0
+  },
+  "10|蘇巧慧": {
+   "votes": 1095,
+   "agree": 277,
+   "against": 818,
+   "abstain": 0
+  },
+  "10|賴瑞隆": {
+   "votes": 1109,
+   "agree": 277,
+   "against": 832,
+   "abstain": 0
+  },
+  "10|蘇治芬": {
+   "votes": 1116,
+   "agree": 283,
+   "against": 833,
+   "abstain": 0
+  },
+  "10|邱志偉": {
+   "votes": 970,
+   "agree": 245,
+   "against": 725,
+   "abstain": 0
+  },
+  "10|蔡易餘": {
+   "votes": 976,
+   "agree": 255,
+   "against": 721,
+   "abstain": 0
+  },
+  "10|曾銘宗": {
+   "votes": 922,
+   "agree": 487,
+   "against": 208,
+   "abstain": 227
+  },
+  "10|謝衣鳯": {
+   "votes": 857,
+   "agree": 456,
+   "against": 205,
+   "abstain": 196
+  },
+  "10|林思銘": {
+   "votes": 875,
+   "agree": 451,
+   "against": 213,
+   "abstain": 211
+  },
+  "10|李貴敏": {
+   "votes": 903,
+   "agree": 433,
+   "against": 230,
+   "abstain": 240
+  },
+  "10|吳怡玎": {
+   "votes": 874,
+   "agree": 460,
+   "against": 225,
+   "abstain": 189
+  },
+  "10|鄭麗文": {
+   "votes": 855,
+   "agree": 433,
+   "against": 216,
+   "abstain": 206
+  },
+  "10|吳欣盈": {
+   "votes": 237,
+   "agree": 109,
+   "against": 6,
+   "abstain": 122
+  },
+  "10|邱臣遠": {
+   "votes": 958,
+   "agree": 461,
+   "against": 86,
+   "abstain": 411
+  },
+  "10|陳琬惠": {
+   "votes": 272,
+   "agree": 126,
+   "against": 6,
+   "abstain": 140
+  },
+  "10|張其祿": {
+   "votes": 911,
+   "agree": 464,
+   "against": 70,
+   "abstain": 377
+  },
+  "10|賴香伶": {
+   "votes": 783,
+   "agree": 420,
+   "against": 71,
+   "abstain": 292
+  },
+  "10|賴士葆": {
+   "votes": 755,
+   "agree": 406,
+   "against": 176,
+   "abstain": 173
+  },
+  "10|吳斯懷": {
+   "votes": 814,
+   "agree": 441,
+   "against": 195,
+   "abstain": 178
+  },
+  "10|廖國棟Sufin‧Siluko": {
+   "votes": 420,
+   "agree": 203,
+   "against": 125,
+   "abstain": 92
+  },
+  "10|林為洲": {
+   "votes": 718,
+   "agree": 355,
+   "against": 199,
+   "abstain": 164
+  },
+  "10|廖婉汝": {
+   "votes": 688,
+   "agree": 377,
+   "against": 160,
+   "abstain": 151
+  },
+  "10|游毓蘭": {
+   "votes": 923,
+   "agree": 483,
+   "against": 217,
+   "abstain": 223
+  },
+  "10|王鴻薇": {
+   "votes": 213,
+   "agree": 99,
+   "against": 10,
+   "abstain": 104
+  },
+  "10|溫玉霞": {
+   "votes": 1002,
+   "agree": 492,
+   "against": 226,
+   "abstain": 284
+  },
+  "10|徐志榮": {
+   "votes": 784,
+   "agree": 437,
+   "against": 187,
+   "abstain": 160
+  },
+  "10|翁重鈞": {
+   "votes": 795,
+   "agree": 438,
+   "against": 170,
+   "abstain": 187
+  },
+  "10|王婉諭": {
+   "votes": 910,
+   "agree": 533,
+   "against": 199,
+   "abstain": 178
+  },
+  "10|邱顯智": {
+   "votes": 925,
+   "agree": 541,
+   "against": 204,
+   "abstain": 180
+  },
+  "10|洪孟楷": {
+   "votes": 676,
+   "agree": 330,
+   "against": 199,
+   "abstain": 147
+  },
+  "10|林文瑞": {
+   "votes": 814,
+   "agree": 463,
+   "against": 193,
+   "abstain": 158
+  },
+  "10|蔡適應": {
+   "votes": 881,
+   "agree": 202,
+   "against": 679,
+   "abstain": 0
+  },
+  "10|楊曜": {
+   "votes": 707,
+   "agree": 151,
+   "against": 556,
+   "abstain": 0
+  },
+  "10|林楚茵": {
+   "votes": 1108,
+   "agree": 280,
+   "against": 828,
+   "abstain": 0
+  },
+  "10|王定宇": {
+   "votes": 1033,
+   "agree": 225,
+   "against": 808,
+   "abstain": 0
+  },
+  "10|鄭正鈐": {
+   "votes": 754,
+   "agree": 425,
+   "against": 196,
+   "abstain": 133
+  },
+  "10|張育美": {
+   "votes": 812,
+   "agree": 439,
+   "against": 209,
+   "abstain": 164
+  },
+  "10|陳以信": {
+   "votes": 717,
+   "agree": 414,
+   "against": 156,
+   "abstain": 147
+  },
+  "10|許智傑": {
+   "votes": 932,
+   "agree": 243,
+   "against": 689,
+   "abstain": 0
+  },
+  "10|伍麗華Saidhai‧Tahovecahe": {
+   "votes": 1050,
+   "agree": 241,
+   "against": 809,
+   "abstain": 0
+  },
+  "10|林德福": {
+   "votes": 706,
+   "agree": 398,
+   "against": 181,
+   "abstain": 127
+  },
+  "10|蘇震清": {
+   "votes": 543,
+   "agree": 138,
+   "against": 404,
+   "abstain": 1
+  },
+  "10|孔文吉": {
+   "votes": 699,
+   "agree": 382,
+   "against": 172,
+   "abstain": 145
+  },
+  "10|江啟臣": {
+   "votes": 785,
+   "agree": 392,
+   "against": 191,
+   "abstain": 202
+  },
+  "10|高金素梅": {
+   "votes": 147,
+   "agree": 62,
+   "against": 31,
+   "abstain": 54
+  },
+  "10|楊瓊瓔": {
+   "votes": 669,
+   "agree": 365,
+   "against": 175,
+   "abstain": 129
+  },
+  "10|費鴻泰": {
+   "votes": 712,
+   "agree": 386,
+   "against": 179,
+   "abstain": 147
+  },
+  "10|陳玉珍": {
+   "votes": 592,
+   "agree": 280,
+   "against": 160,
+   "abstain": 152
+  },
+  "10|馬文君": {
+   "votes": 702,
+   "agree": 346,
+   "against": 182,
+   "abstain": 174
+  },
+  "10|李德維": {
+   "votes": 911,
+   "agree": 476,
+   "against": 216,
+   "abstain": 219
+  },
+  "10|鄭天財Sra Kacaw": {
+   "votes": 778,
+   "agree": 420,
+   "against": 171,
+   "abstain": 187
+  },
+  "10|羅明才": {
+   "votes": 664,
+   "agree": 384,
+   "against": 146,
+   "abstain": 134
+  },
+  "10|陳雪生": {
+   "votes": 570,
+   "agree": 338,
+   "against": 144,
+   "abstain": 88
+  },
+  "10|呂玉玲": {
+   "votes": 711,
+   "agree": 375,
+   "against": 194,
+   "abstain": 142
+  },
+  "10|趙正宇": {
+   "votes": 250,
+   "agree": 50,
+   "against": 200,
+   "abstain": 0
+  },
+  "10|黃國書": {
+   "votes": 653,
+   "agree": 209,
+   "against": 444,
+   "abstain": 0
+  },
+  "10|林昶佐": {
+   "votes": 336,
+   "agree": 87,
+   "against": 249,
+   "abstain": 0
+  },
+  "10|傅崐萁": {
+   "votes": 174,
+   "agree": 93,
+   "against": 20,
+   "abstain": 61
+  },
+  "10|陳超明": {
+   "votes": 480,
+   "agree": 228,
+   "against": 164,
+   "abstain": 88
+  },
+  "10|魯明哲": {
+   "votes": 680,
+   "agree": 356,
+   "against": 188,
+   "abstain": 136
+  },
+  "10|萬美玲": {
+   "votes": 693,
+   "agree": 401,
+   "against": 189,
+   "abstain": 103
+  },
+  "10|管碧玲": {
+   "votes": 944,
+   "agree": 276,
+   "against": 668,
+   "abstain": 0
+  },
+  "10|林奕華": {
+   "votes": 654,
+   "agree": 382,
+   "against": 182,
+   "abstain": 90
+  },
+  "10|蔡壁如": {
+   "votes": 590,
+   "agree": 307,
+   "against": 74,
+   "abstain": 209
+  },
+  "10|周春米": {
+   "votes": 814,
+   "agree": 263,
+   "against": 551,
+   "abstain": 0
+  },
+  "10|高虹安": {
+   "votes": 611,
+   "agree": 318,
+   "against": 65,
+   "abstain": 228
+  },
+  "10|許淑華": {
+   "votes": 523,
+   "agree": 267,
+   "against": 174,
+   "abstain": 82
+  },
+  "10|蔣萬安": {
+   "votes": 516,
+   "agree": 282,
+   "against": 173,
+   "abstain": 61
+  },
+  "10|蔡其昌": {
+   "votes": 2,
+   "agree": 2,
+   "against": 0,
+   "abstain": 0
+  },
+  "10|陳柏惟": {
+   "votes": 265,
+   "agree": 65,
+   "against": 199,
+   "abstain": 1
+  }
+ },
+ "notable": [
+  {
+   "issue": "討論事項第二案　　　　　台灣民眾黨黨團提議逕付二讀",
+   "time": "中華民國年3月20日 上午11時52分30秒",
+   "agree": 59,
+   "against": 50,
+   "abstain": 0
+  },
+  {
+   "issue": "交通委員會　保留211　　　　　台灣民眾黨黨團提案",
+   "time": "中華民國年1月21日 上午1時10分04秒",
+   "agree": 55,
+   "against": 46,
+   "abstain": 0
+  },
+  {
+   "issue": "財政委員會　保留153　　　　　國民黨黨團提案",
+   "time": "中華民國年1月20日 下午9時08分55秒",
+   "agree": 56,
+   "against": 45,
+   "abstain": 0
+  },
+  {
+   "issue": "會議延長　　　　　國民黨黨團提議",
+   "time": "中華民國年1月20日 下午5時18分25秒",
+   "agree": 55,
+   "against": 46,
+   "abstain": 0
+  },
+  {
+   "issue": "外交及國防委員會　保留202　　　　　國民黨黨團提案",
+   "time": "中華民國年1月20日 下午4時58分44秒",
+   "agree": 56,
+   "against": 46,
+   "abstain": 0
+  },
+  {
+   "issue": "內政委員會　保留429　　　　　國民黨黨團提案",
+   "time": "中華民國年1月20日 下午1時10分41秒",
+   "agree": 56,
+   "against": 46,
+   "abstain": 0
+  },
+  {
+   "issue": "內政委員會　保留215　　　　　國民黨黨團提案",
+   "time": "中華民國年1月20日 下午12時02分31秒",
+   "agree": 56,
+   "against": 46,
+   "abstain": 0
+  },
+  {
+   "issue": "內政委員會　保留214　　　　　台灣民眾黨黨團提案",
+   "time": "中華民國年1月20日 下午12時00分47秒",
+   "agree": 56,
+   "against": 46,
+   "abstain": 0
+  },
+  {
+   "issue": "地質法第五條條文修正草案　　　　　全案表決",
+   "time": "中華民國年114年11月14日 下午5時47分47秒",
+   "agree": 57,
+   "against": 48,
+   "abstain": 0
+  },
+  {
+   "issue": "討3　民進黨黨團所提第3會期第2次　　　　　會議報告事項第7、21及第30案復議案",
+   "time": "中華民國2025年9月30日 上午9時27分14秒",
+   "agree": 49,
+   "against": 57,
+   "abstain": 0
+  },
+  {
+   "issue": "討論事項第二案附帶決議2　　　　　台灣民眾黨黨團、國民黨黨團提案",
+   "time": "中華民國115年5月8日 下午4時00分53秒",
+   "agree": 58,
+   "against": 51,
+   "abstain": 0
+  },
+  {
+   "issue": "討論事項第二案　委員陳清龍等　　　　　針對本案三讀之決議提出復議",
+   "time": "中華民國115年5月8日 下午3時56分54秒",
+   "agree": 0,
+   "against": 59,
+   "abstain": 51
+  },
+  {
+   "issue": "討論事項第二案　　　　　全案表決",
+   "time": "中華民國115年5月8日 下午3時54分25秒",
+   "agree": 59,
+   "against": 0,
+   "abstain": 48
+  },
+  {
+   "issue": "討論事項第一案　委員陳清龍等　　　　　針對本案三讀之決議提出復議",
+   "time": "中華民國115年5月8日 下午2時28分56秒",
+   "agree": 0,
+   "against": 59,
+   "abstain": 51
+  },
+  {
+   "issue": "醫療法第十二條　　　　　國民黨黨團再修正動議",
+   "time": "中華民國115年5月8日 下午2時16分57秒",
+   "agree": 60,
+   "against": 50,
+   "abstain": 0
+  },
+  {
+   "issue": "醫療法第十二條　　　　　民進黨黨團再修正動議",
+   "time": "中華民國115年5月8日 下午2時15分03秒",
+   "agree": 51,
+   "against": 60,
+   "abstain": 0
+  },
+  {
+   "issue": "醫療法第十二條　　　　　台灣民眾黨黨團再修正動議",
+   "time": "中華民國115年5月8日 下午2時13分22秒",
+   "agree": 8,
+   "against": 51,
+   "abstain": 0
+  },
+  {
+   "issue": "討論事項第一案　委員傅崐萁等　　　　　針對本案之決議提出復議",
+   "time": "中華民國115年5月15日 上午11時37分37秒",
+   "agree": 42,
+   "against": 53,
+   "abstain": 0
+  },
+  {
+   "issue": "討論事項第一案　　　　　台灣民眾黨黨團修正動議",
+   "time": "中華民國115年5月15日 上午11時35分23秒",
+   "agree": 53,
+   "against": 39,
+   "abstain": 0
+  },
+  {
+   "issue": "議事日程草案討論事項　　　　　台灣民眾黨黨團提議",
+   "time": "中華民國115年5月15日 上午11時13分06秒",
+   "agree": 53,
+   "against": 44,
+   "abstain": 0
+  },
+  {
+   "issue": "議事日程草案報告事項等案　　　　　台灣民眾黨黨團、國民黨黨團提議",
+   "time": "中華民國115年5月15日 上午11時10分37秒",
+   "agree": 53,
+   "against": 43,
+   "abstain": 0
+  },
+  {
+   "issue": "議事日程草案報告事項等案　　　　　民進黨黨團提議",
+   "time": "中華民國115年5月15日 上午11時08分39秒",
+   "agree": 44,
+   "against": 53,
+   "abstain": 0
+  },
+  {
+   "issue": "議事日程草案報告事項等案　　　　　台灣民眾黨黨團國民黨黨團提議",
+   "time": "中華民國115年4月24日 上午11時07分28秒",
+   "agree": 60,
+   "against": 50,
+   "abstain": 0
+  },
+  {
+   "issue": "議事日程草案報告事項等案　　　　　民進黨黨團提議",
+   "time": "中華民國115年4月24日 上午11時05分26秒",
+   "agree": 51,
+   "against": 59,
+   "abstain": 0
+  },
+  {
+   "issue": "議事日程草案報告事項等案　　　　　台灣民眾黨黨團、國民黨黨團提議",
+   "time": "中華民國115年4月17日 上午11時07分35秒",
+   "agree": 56,
+   "against": 51,
+   "abstain": 0
+  },
+  {
+   "issue": "議事日程草案報告事項等案　　　　　民進黨黨團提議",
+   "time": "中華民國115年4月17日 上午11時05分41秒",
+   "agree": 51,
+   "against": 56,
+   "abstain": 0
+  },
+  {
+   "issue": "討論事項第二案　　　　　台灣民眾黨黨團提議逕付二讀",
+   "time": "中華民國115年4月10日 上午11時37分32秒",
+   "agree": 59,
+   "against": 47,
+   "abstain": 0
+  },
+  {
+   "issue": "議事日程草案報告事項等案　　　　　台灣民眾黨黨團、國民黨黨團提議",
+   "time": "中華民國115年4月10日 上午11時04分11秒",
+   "agree": 58,
+   "against": 47,
+   "abstain": 0
+  },
+  {
+   "issue": "議事日程草案報告事項等案　　　　　民進黨黨團提議",
+   "time": "中華民國115年4月10日 上午11時01分51秒",
+   "agree": 48,
+   "against": 57,
+   "abstain": 0
+  },
+  {
+   "issue": "討論事項第三案　　　　　台灣民眾黨黨團提議逕付二讀",
+   "time": "中華民國115年3月6日 上午11時48分23秒",
+   "agree": 53,
+   "against": 29,
+   "abstain": 0
+  }
+ ]
+}
