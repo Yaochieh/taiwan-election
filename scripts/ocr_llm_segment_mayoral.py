@@ -49,9 +49,21 @@ def llm_segment(full_text: str, names: list[str]) -> dict:
     text = re.sub(r"^```(?:json)?\n?", "", text)
     text = re.sub(r"\n?```$", "", text)
     try:
-        return json.loads(text)
+        seg = json.loads(text)
     except json.JSONDecodeError:
         return {}
+    # 修正：LLM 偶爾把單一候選人的值回成巢狀 {"polished_content":...}
+    fixed = {}
+    for k, v in seg.items():
+        if isinstance(v, dict):
+            v = v.get("polished_content", "")
+        elif isinstance(v, str) and v.lstrip().startswith("{") and "polished_content" in v:
+            try:
+                v = json.loads(re.sub(r"```$", "", re.sub(r"^```(?:json)?", "", v.strip()))).get("polished_content", "")
+            except Exception:
+                pass
+        fixed[k] = v
+    return fixed
 
 
 def main():
