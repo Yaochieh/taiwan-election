@@ -1,0 +1,68 @@
+"""API smoke test — 每個 router 的主要端點回 200 且有關鍵欄位。"""
+import sys
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT))
+from api.main import app  # noqa: E402
+
+client = TestClient(app)
+
+SMOKE = [
+    ("/health", None),
+    ("/elections", None),
+    ("/elections/cycles", None),
+    ("/elections/48", "name"),
+    ("/elections/48/results", None),
+    ("/elections/48/totals", None),
+    ("/elections/48/total-votes", None),
+    ("/elections/48/townships", None),
+    ("/candidates/search?q=蔡英文", None),
+    ("/parties", None),
+    ("/parties/seats?election_id=51", None),
+    ("/platforms/elections", None),
+    ("/platforms/elections/51", None),
+    ("/trends/presidential", None),
+    ("/trends/presidential/county-winners", None),
+    ("/trends/mayoral/county-winners", None),
+    ("/mayoral/history", None),
+    ("/legislature/trend/seats", None),
+    ("/search?q=蔡英文", None),
+    ("/people/蔡英文", "name"),
+    ("/people/蔡英文/targets", None),
+    ("/topics", None),
+    ("/topics/交通", None),
+    ("/issues/overview", None),
+    ("/issues/fertility", None),
+]
+
+
+@pytest.mark.parametrize("path,key", SMOKE, ids=[p for p, _ in SMOKE])
+def test_endpoint(path, key):
+    r = client.get(path)
+    assert r.status_code == 200, f"{path} -> {r.status_code}: {r.text[:200]}"
+    data = r.json()
+    if key:
+        assert key in data, f"{path} 缺 {key}"
+
+
+def test_election_totals_no_inflation():
+    """/elections/48/total-votes 回 2020 實際有效票數（歷史 bug: 2x/5x）"""
+    r = client.get("/elections/48/total-votes")
+    assert r.status_code == 200
+    body = r.json()
+    total = body["total_votes"] if isinstance(body, dict) else body
+    assert total == 14_300_940, f"2020 總統有效票應為 14,300,940，got {total}"
+
+
+def test_unknown_candidate_404():
+    r = client.get("/candidates/99999999")
+    assert r.status_code == 404
+
+
+def test_unknown_person_404():
+    r = client.get("/people/不存在的人xyz")
+    assert r.status_code == 404

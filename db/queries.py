@@ -5,6 +5,20 @@ from contextlib import contextmanager
 
 DB_PATH = Path(__file__).parent.parent / "data" / "db.sqlite"
 
+# ── 共用 SQL guard（見 CLAUDE.md 重要常識 1、8）──────────────────────────────
+# election_results 的「摘要列」= district 為「全國」或舊式「地區(0, 0, 0)」。
+# 總統與不分區同時有摘要列與縣市列，任何票數彙總都必須擇一，否則會重複計算。
+# {t} 是 election_results 的別名。
+SQL_IS_SUMMARY = "({t}.district = '全國' OR {t}.district LIKE '地區(0%')"
+SQL_NOT_SUMMARY = "({t}.district != '全國' AND {t}.district NOT LIKE '地區(0%')"
+# 每位候選人的總票數：優先取摘要列，沒有摘要列才 SUM 縣市列
+SQL_VOTES_DEDUP = """COALESCE(
+                     SUM(CASE WHEN {t}.district='全國' OR {t}.district LIKE '地區(0%' THEN {t}.votes END),
+                     SUM(CASE WHEN {t}.district!='全國' AND {t}.district NOT LIKE '地區(0%' THEN {t}.votes END)
+                   )"""
+# 總統選舉正、副總統各有一組票數相同的列，跨候選人彙總只能算正總統
+SQL_NOT_VP = "COALESCE(c.background, '正總統') != '副總統'"
+
 
 @contextmanager
 def get_connection():
@@ -96,10 +110,10 @@ def get_election_by_id(election_id: int) -> dict | None:
 def get_candidates_by_election(election_id: int) -> pd.DataFrame:
     with get_connection() as conn:
         return pd.read_sql_query(
-            """
+            f"""
             SELECT c.candidate_id, c.name, c.district, c.background, c.platform,
                    p.name AS party_name, p.abbreviation, p.color_hex,
-                   SUM(r.votes) AS votes,
+                   {SQL_VOTES_DEDUP.format(t="r")} AS votes,
                    MAX(r.elected) AS elected
             FROM candidates c
             LEFT JOIN parties p ON c.party_id = p.party_id
@@ -116,9 +130,9 @@ def get_candidates_by_election(election_id: int) -> pd.DataFrame:
 def get_candidate_by_id(candidate_id: int) -> dict | None:
     with get_connection() as conn:
         row = conn.execute(
-            """
+            f"""
             SELECT c.*, p.name AS party_name, p.abbreviation, p.color_hex,
-                   SUM(r.votes) AS votes,
+                   {SQL_VOTES_DEDUP.format(t="r")} AS votes,
                    MAX(r.elected) AS elected
             FROM candidates c
             LEFT JOIN parties p ON c.party_id = p.party_id
@@ -168,10 +182,10 @@ def get_national_totals(election_id: int) -> pd.DataFrame:
     """各候選人全國得票加總"""
     with get_connection() as conn:
         return pd.read_sql_query(
-            """
+            f"""
             SELECT c.name AS candidate_name,
                    p.name AS party_name, p.color_hex,
-                   SUM(er.votes) AS total_votes
+                   {SQL_VOTES_DEDUP.format(t="er")} AS total_votes
             FROM election_results er
             JOIN candidates c ON er.candidate_id = c.candidate_id
             LEFT JOIN parties p ON c.party_id = p.party_id
@@ -184,10 +198,18 @@ def get_national_totals(election_id: int) -> pd.DataFrame:
 
 
 def get_total_votes_by_election(election_id: int) -> int:
-    """選舉有效票總數（去重複計算）"""
+    """選舉有效票總數（每位候選人先去重摘要/縣市列，總統再排除副總統列）"""
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT SUM(votes) FROM election_results WHERE election_id = ?",
+            f"""
+            SELECT SUM(v) FROM (
+                SELECT {SQL_VOTES_DEDUP.format(t="er")} AS v
+                FROM election_results er
+                JOIN candidates c ON er.candidate_id = c.candidate_id
+                WHERE er.election_id = ? AND {SQL_NOT_VP}
+                GROUP BY er.candidate_id
+            )
+            """,
             (election_id,)
         ).fetchone()
         return int(row[0]) if row and row[0] else 0
@@ -261,24 +283,16 @@ def get_presidential_vote_trend() -> pd.DataFrame:
     """歷屆總統選舉各候選人得票，依日期排序（只取正總統，避免正副重複計票）"""
     with get_connection() as conn:
         return pd.read_sql_query(
-            """
+            f"""
             SELECT e.date, c.name AS candidate_name,
                    p.name AS party_name,
-                   -- 若有「全國」摘要列用它（已是總票）；否則 SUM 縣市
-                   COALESCE(
-                     SUM(CASE
-                       WHEN er.district='全國' OR er.district LIKE '地區(0%' THEN er.votes
-                     END),
-                     SUM(CASE
-                       WHEN er.district!='全國' AND er.district NOT LIKE '地區(0%' THEN er.votes
-                     END)
-                   ) AS votes
+                   {SQL_VOTES_DEDUP.format(t="er")} AS votes
             FROM election_results er
             JOIN candidates c ON er.candidate_id = c.candidate_id
             JOIN elections e ON er.election_id = e.election_id
             LEFT JOIN parties p ON c.party_id = p.party_id
             WHERE e.type = 'presidential'
-              AND COALESCE(c.background, '正總統') != '副總統'
+              AND {SQL_NOT_VP}
             GROUP BY e.election_id, c.candidate_id
             ORDER BY e.date, votes DESC
             """,
@@ -442,7 +456,7 @@ def get_person_profile(name: str) -> dict:
         # SUM(votes) 取得全國總票，MAX(elected) 表是否當選；
         # 避免總統選舉因為有「全國」與 22 個縣市的 row 而出現多筆。
         # 同一候選人若有多個 district（如 presidential per-county）只算一次。
-        candidate_rows = conn.execute("""
+        candidate_rows = conn.execute(f"""
             SELECT c.candidate_id, c.election_id, c.party_id, c.background,
                    c.district AS cand_district, c.photo_path,
                    p.name AS party_name, p.color_hex,
@@ -451,20 +465,10 @@ def get_person_profile(name: str) -> dict:
                    -- 優先取全國摘要列；若無則取任一縣市
                    COALESCE(
                      c.district,
-                     MAX(CASE WHEN er.district='全國' OR er.district LIKE '地區(0%' THEN er.district END),
+                     MAX(CASE WHEN {SQL_IS_SUMMARY.format(t="er")} THEN er.district END),
                      MIN(er.district)
                    ) AS district,
-                   -- 若有「全國」row 用它的票數，否則 SUM 縣市票數；
-                   -- presidential 的「全國」row 已被 import 階段移除，所以這裡 SUM
-                   -- 若有「全國摘要列」(全國 或 地區(0,0,0)) 用它的票數，
-                   -- 否則 SUM 縣市票數
-                   SUM(CASE
-                       WHEN er.district='全國' OR er.district LIKE '地區(0%' THEN er.votes
-                       ELSE 0
-                   END) +
-                   CASE WHEN COUNT(CASE
-                       WHEN er.district='全國' OR er.district LIKE '地區(0%' THEN 1
-                   END)=0 THEN COALESCE(SUM(er.votes), 0) ELSE 0 END AS votes,
+                   {SQL_VOTES_DEDUP.format(t="er")} AS votes,
                    MAX(er.elected) AS elected,
                    (SELECT COUNT(*) FROM platforms pl
                     WHERE pl.candidate_id = c.candidate_id) AS platform_count,
@@ -538,7 +542,7 @@ def get_person_profile(name: str) -> dict:
             }
             # presidential：列出該候選人「在哪些縣市得票最高（勝選）」
             if r["election_type"] == "presidential":
-                county_rows = conn.execute("""
+                county_rows = conn.execute(f"""
                     SELECT er.district,
                            er.votes AS my_votes,
                            (SELECT MAX(er2.votes) FROM election_results er2
@@ -546,7 +550,7 @@ def get_person_profile(name: str) -> dict:
                               AND er2.district = er.district) AS max_votes
                     FROM election_results er
                     WHERE er.election_id = ? AND er.candidate_id = ?
-                      AND er.district != '全國' AND er.district NOT LIKE '地區(0%'
+                      AND {SQL_NOT_SUMMARY.format(t="er")}
                 """, (r["election_id"], r["candidate_id"])).fetchall()
                 counties_won = [
                     c["district"]
@@ -924,9 +928,8 @@ def get_presidential_county_winners(merge_old_counties: bool = True) -> list[dic
                 JOIN elections e ON er.election_id = e.election_id
                 LEFT JOIN parties p ON c.party_id = p.party_id
                 WHERE e.type='presidential'
-                  AND er.district != '全國'
-                  AND er.district NOT LIKE '地區(0%'
-                  AND COALESCE(c.background, '正總統') != '副總統'
+                  AND {SQL_NOT_SUMMARY.format(t="er")}
+                  AND {SQL_NOT_VP}
             ),
             agg AS (
                 SELECT year, county, candidate_id, candidate, party, color_hex,
@@ -1224,19 +1227,11 @@ def search_candidates(query: str) -> pd.DataFrame:
     """跨選舉搜尋候選人"""
     with get_connection() as conn:
         return pd.read_sql_query(
-            """
+            f"""
             SELECT c.name, c.district, c.background AS role,
                    e.date, e.name AS election_name, e.type AS election_type,
                    p.name AS party_name,
-                   -- 若有「全國」摘要列用它；否則 SUM 縣市
-                   COALESCE(
-                     SUM(CASE
-                       WHEN r.district='全國' OR r.district LIKE '地區(0%' THEN r.votes
-                     END),
-                     SUM(CASE
-                       WHEN r.district!='全國' AND r.district NOT LIKE '地區(0%' THEN r.votes
-                     END)
-                   ) AS votes,
+                   {SQL_VOTES_DEDUP.format(t="r")} AS votes,
                    MAX(r.elected) AS elected
             FROM candidates c
             JOIN elections e ON c.election_id = e.election_id
@@ -1295,7 +1290,7 @@ def get_topic_platforms(
     year_to: int | None = None,
 ) -> list[dict]:
     """主題下的政見列表（含篩選）"""
-    sql = """
+    sql = f"""
         SELECT p.platform_id, p.content, l.score,
                c.candidate_id, c.name AS candidate_name,
                e.election_id, e.date AS election_date, e.name AS election_name,
@@ -1310,7 +1305,7 @@ def get_topic_platforms(
         LEFT JOIN parties pa ON c.party_id = pa.party_id
         LEFT JOIN election_results er
             ON er.candidate_id = c.candidate_id AND er.election_id = e.election_id
-            AND er.district NOT LIKE '地區(0%' AND er.district != '全國'
+            AND {SQL_NOT_SUMMARY.format(t="er")}
         WHERE t.name = ?
     """
     params: list = [topic_name]
