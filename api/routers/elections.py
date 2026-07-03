@@ -9,6 +9,8 @@ from models import (
     ElectionCycle,
     ElectionResult,
     NationalTotal,
+    TotalVotes,
+    TownshipResult,
 )
 
 router = APIRouter()
@@ -73,14 +75,14 @@ def get_national_totals(election_id: int):
     return df_to_records(df)
 
 
-@router.get("/{election_id}/total-votes")
+@router.get("/{election_id}/total-votes", response_model=TotalVotes)
 def get_total_votes(election_id: int):
     """某選舉的有效票總數"""
     total = queries.get_total_votes_by_election(election_id)
     return {"election_id": election_id, "total_votes": total}
 
 
-@router.get("/{election_id}/townships")
+@router.get("/{election_id}/townships", response_model=list[TownshipResult])
 def get_township_results(
     election_id: int,
     county: str | None = Query(None, description="篩選縣市"),

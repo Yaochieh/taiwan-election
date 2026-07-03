@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from db import queries
 
 router = APIRouter()
@@ -13,4 +13,7 @@ def legislative_seat_trend():
 @router.get("/{year}")
 def legislature_composition(year: str):
     """指定年份立法院席次組成（含 113 立委分類、政黨總席次）"""
-    return queries.get_legislative_seats(year)
+    result = queries.get_legislative_seats(year)
+    if not result.get("parties") and not result.get("members"):
+        raise HTTPException(status_code=404, detail=f"找不到 {year} 年立法院資料")
+    return result

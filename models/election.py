@@ -182,3 +182,18 @@ class MayoralHistory(BaseModel):
     party_name: str | None = None
     votes: int
     election_note: str | None = None
+
+
+class TotalVotes(BaseModel):
+    election_id: int
+    total_votes: int
+
+
+class TownshipResult(BaseModel):
+    county: str
+    township: str
+    votes: int
+    candidate_name: str
+    background: str | None = None
+    party_name: str | None = None
+    color_hex: str | None = None

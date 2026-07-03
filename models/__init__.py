@@ -21,6 +21,8 @@ from models.election import (
     PartyListTrend,
     MayoralHistory,
     District,
+    TotalVotes,
+    TownshipResult,
 )
 
 __all__ = [
@@ -29,4 +31,5 @@ __all__ = [
     "PartyByDate", "PartyListVote", "ElectedCount", "ElectionCycle",
     "Platform", "PlatformSource", "PlatformImage", "CandidatePlatformStatus",
     "PresidentialTrend", "PartyListTrend", "MayoralHistory", "District",
+    "TotalVotes", "TownshipResult",
 ]

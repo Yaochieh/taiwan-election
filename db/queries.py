@@ -1116,6 +1116,24 @@ def get_platforms_by_election(election_id: int) -> pd.DataFrame:
         )
 
 
+def get_platforms_by_candidate(candidate_id: int, election_id: int) -> pd.DataFrame:
+    """某候選人在某場選舉的政見條目。"""
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT c.candidate_id, c.name AS candidate_name,
+                   p.name AS party_name, p.color_hex,
+                   pl.seq, pl.content, pl.content_raw, pl.source_url, pl.note
+            FROM platforms pl
+            JOIN candidates c ON pl.candidate_id = c.candidate_id
+            LEFT JOIN parties p ON c.party_id = p.party_id
+            WHERE pl.candidate_id = ? AND pl.election_id = ?
+            ORDER BY pl.seq
+            """,
+            conn, params=(candidate_id, election_id)
+        )
+
+
 def get_platform_sources(candidate_id: int, election_id: int) -> pd.DataFrame:
     """某候選人在某場選舉的政見來源。"""
     with get_connection() as conn:

@@ -1,7 +1,12 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from db import queries
 
 router = APIRouter()
+
+
+def _require_topic(topic_name: str):
+    if not any(t["name"] == topic_name for t in queries.list_platform_topics()):
+        raise HTTPException(status_code=404, detail=f"找不到主題「{topic_name}」")
 
 
 @router.get("")
@@ -20,6 +25,7 @@ def topic_detail(
     year_to: int | None = Query(None),
 ):
     """主題下的所有政見（可按多維度篩選）"""
+    _require_topic(topic_name)
     return queries.get_topic_platforms(
         topic_name, election_type=election_type, party=party,
         person=person, year_from=year_from, year_to=year_to,
@@ -29,10 +35,12 @@ def topic_detail(
 @router.get("/{topic_name}/stats")
 def topic_stats(topic_name: str):
     """主題的彙總統計（年度趨勢、各黨次數、最常提及者）"""
+    _require_topic(topic_name)
     return queries.get_topic_stats(topic_name)
 
 
 @router.get("/{topic_name}/targets")
 def topic_auto_targets(topic_name: str):
     """主題下自動抽取的量化承諾"""
+    _require_topic(topic_name)
     return queries.get_auto_targets_by_topic(topic_name)

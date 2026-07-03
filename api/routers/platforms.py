@@ -45,10 +45,9 @@ def list_candidates_with_status(
             response_model=list[Platform])
 def get_candidate_platforms(candidate_id: int, election_id: int = Query(...)):
     """某候選人在某選舉的政見條目"""
-    df = queries.get_platforms_by_election(election_id)
+    df = queries.get_platforms_by_candidate(candidate_id, election_id)
     if df.empty:
         return []
-    df = df[df["candidate_id"] == candidate_id]
     return df_to_records(df)
 
 

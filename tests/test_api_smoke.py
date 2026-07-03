@@ -66,3 +66,26 @@ def test_unknown_candidate_404():
 def test_unknown_person_404():
     r = client.get("/people/不存在的人xyz")
     assert r.status_code == 404
+
+
+def test_unknown_topic_404():
+    for suffix in ("", "/stats", "/targets"):
+        r = client.get(f"/topics/不存在主題xyz{suffix}")
+        assert r.status_code == 404, f"/topics/...{suffix} -> {r.status_code}"
+
+
+def test_unknown_legislature_year_404():
+    r = client.get("/legislature/1888")
+    assert r.status_code == 404
+
+
+def test_candidate_platforms_filtered():
+    """政見端點只回該候選人的條目"""
+    r = client.get("/platforms/elections/51")
+    assert r.status_code == 200
+    rows = r.json()
+    assert rows, "election 51 應有政見"
+    cid = rows[0]["candidate_id"]
+    r2 = client.get(f"/platforms/candidates/{cid}?election_id=51")
+    assert r2.status_code == 200
+    assert all(p["candidate_id"] == cid for p in r2.json())
