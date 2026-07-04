@@ -96,6 +96,9 @@ def ensure_target_columns(conn):
         conn.execute("ALTER TABLE platform_targets ADD COLUMN auto_extracted INTEGER DEFAULT 0")
     if "tense" not in cols:
         conn.execute("ALTER TABLE platform_targets ADD COLUMN tense TEXT")  # past/future/unknown
+    if "extraction_method" not in cols:
+        # regex / llm — 各管線只能刪自己的 rows，避免互相蓋掉
+        conn.execute("ALTER TABLE platform_targets ADD COLUMN extraction_method TEXT")
     conn.commit()
 
 
@@ -251,10 +254,12 @@ def main():
     rows = conn.execute(sql, params).fetchall()
     print(f"📋 {len(rows)} 條政見要解析")
 
-    # 刪除舊的 auto_extracted
+    # 只刪自己(regex)產的舊 rows；LLM 管線(extraction_method='llm')的 rows 絕不可刪
+    # （2026-07-05 曾因無條件 DELETE auto_extracted=1 誤刪 1414 筆 LLM targets）
     if not args.dry_run:
         conn.execute(
             "DELETE FROM platform_targets WHERE auto_extracted = 1"
+            " AND extraction_method = 'regex'"
             + (" AND person_name = ?" if args.candidate else ""),
             (args.candidate,) if args.candidate else (),
         )
@@ -277,8 +282,8 @@ def main():
                 """INSERT INTO platform_targets
                    (person_name, election_id, category, title, description,
                     metric_unit, target_value, target_date, status,
-                    auto_extracted, source_platform_id, tense)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'in_progress', 1, ?, ?)""",
+                    auto_extracted, source_platform_id, tense, extraction_method)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'in_progress', 1, ?, ?, 'regex')""",
                 (
                     r["person_name"],
                     r["election_id"],
