@@ -65,3 +65,9 @@ def get_candidate_platform_images(candidate_id: int, election_id: int = Query(..
     """某候選人的圖片版政見（檔案路徑）"""
     df = queries.get_platform_images(candidate_id, election_id)
     return df_to_records(df)
+
+
+@router.get("/targets/flagship")
+def flagship_targets():
+    """首頁兌現追蹤看板：旗艦承諾 + 最新進度與來源"""
+    return queries.get_flagship_targets()

@@ -1468,3 +1468,47 @@ def get_auto_targets_by_topic(topic_name: str) -> list[dict]:
             ORDER BY (pt.tense='future') DESC, pt.target_value DESC
         """, (topic_name,)).fetchall()
         return [dict(r) for r in rows]
+
+
+def get_flagship_targets() -> list[dict]:
+    """首頁兌現追蹤看板：旗艦承諾 + 最新進度（只含有進度記錄者）。
+
+    party 資訊透過該場選舉的 candidates 連結取得；person_name 本身是政黨
+    （如「民主進步黨」）時 join 不到，前端用黨名 fallback 上色。
+    """
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT t.target_id, t.person_name, t.title, t.category,
+                   t.target_value, t.metric_unit, t.baseline_value, t.target_date,
+                   pa.name AS party_name, pa.color_hex
+            FROM platform_targets t
+            LEFT JOIN candidates c
+                   ON c.election_id = t.election_id AND c.name = t.person_name
+            LEFT JOIN parties pa ON c.party_id = pa.party_id
+            WHERE t.flagship = 1
+        """).fetchall()
+        out = []
+        for r in rows:
+            row = dict(r)
+            p = conn.execute("""
+                SELECT recorded_at, current_value, note, source_url
+                FROM platform_target_progress
+                WHERE target_id = ? ORDER BY recorded_at DESC LIMIT 1
+            """, (r["target_id"],)).fetchone()
+            if not p or p["current_value"] is None:
+                continue  # 看板只列已有進度記錄的
+            base = row["baseline_value"] if row["baseline_value"] is not None else 0
+            tv = row["target_value"]
+            row.update(
+                latest_value=p["current_value"],
+                recorded_at=p["recorded_at"],
+                progress_note=p["note"],
+                progress_source_url=p["source_url"],
+                progress_pct=(
+                    round(max(0.0, (p["current_value"] - base) / (tv - base) * 100), 1)
+                    if tv is not None and tv != base else None
+                ),
+            )
+            out.append(row)
+        out.sort(key=lambda x: -(x["progress_pct"] or 0))
+        return out
