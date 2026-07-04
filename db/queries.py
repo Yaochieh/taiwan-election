@@ -419,13 +419,17 @@ def get_person_targets(name: str) -> list[dict]:
                 progress.append(p_dict)
             row["progress"] = progress
 
-            # 進度百分比
+            # 進度百分比：無 baseline 視為從 0 起算；超標不 cap（170% 是有意義的資訊）
             baseline = t["baseline_value"]
             target = t["target_value"]
-            if baseline is not None and target is not None and target != baseline:
-                latest = progress[-1]["current_value"] if progress else baseline
-                pct = (latest - baseline) / (target - baseline) * 100
-                row["progress_pct"] = round(max(0, min(100, pct)), 1)
+            latest = progress[-1]["current_value"] if progress else None
+            if target is not None and latest is not None:
+                base = baseline if baseline is not None else 0
+                if target != base:
+                    pct = (latest - base) / (target - base) * 100
+                    row["progress_pct"] = round(max(0.0, pct), 1)
+                else:
+                    row["progress_pct"] = None
                 row["latest_value"] = latest
             else:
                 row["progress_pct"] = None
