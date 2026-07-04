@@ -115,54 +115,107 @@ def detect_topic(text: str) -> str | None:
     return best
 
 
+# ── 中文數字支援 ─────────────────────────────────────────────────────────────
+# 政見常見中文數字量化承諾（一萬名青年、三班護病比、一億元創業基金、五十公頃…）
+_CN_DIGIT = {"零": 0, "一": 1, "二": 2, "兩": 2, "三": 3, "四": 4,
+             "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+_CN_MULT = {"十": 10, "百": 100, "千": 1000, "萬": 10000, "億": 100000000}
+
+
+def cn2num(s: str) -> float | None:
+    """中文數字字串轉整數：一千五百萬→15000000、十二→12、三萬→30000。失敗回 None。"""
+    total = section = number = 0
+    for ch in s:
+        if ch in _CN_DIGIT:
+            number = _CN_DIGIT[ch]
+        elif ch in _CN_MULT:
+            u = _CN_MULT[ch]
+            if u >= 10000:
+                section = (section + number) * u
+                total += section
+                section = 0
+            else:
+                if number == 0 and ch == "十":  # 十二 → 12
+                    number = 1
+                section += number * u
+            number = 0
+        else:
+            return None
+    return total + section + number
+
+
+# 中文數字開頭須為真數字(一~十/兩)，避免抓到裸的「萬戶/百萬」
+_CN_NUM = r"[一二三四五六七八九十兩][一二三四五六七八九十百千萬億兩]*"
+# 強單位：裸中文數字即可收（明確量化、少成語碰撞）
+_CN_STRONG_UNITS = r"萬戶|千戶|戶|億元|兆元|萬元|公里|公頃|床|班|校|席"
+# 弱單位：計數詞易與「一國/一例/統一處理」等成語碰撞，須數字含位數(十百千萬)才收
+_CN_WEAK_UNITS = r"座|所|處|家|件|名|人"
+_CN_PAT = re.compile(rf"(?P<num>{_CN_NUM})\s*(?P<unit>{_CN_STRONG_UNITS}|{_CN_WEAK_UNITS})")
+_CN_STRONG_RE = re.compile(rf"^(?:{_CN_STRONG_UNITS})$")
+_CN_MAG_RE = re.compile(r"[十百千萬億]")
+
+
+def _build_target(sent: str, num: float, unit: str) -> dict:
+    """把一個 (句子, 數值, 單位) 組成 target dict（topic/時程/時態共用）。"""
+    topic = detect_topic(sent) or "未分類"
+    time_horizon = None
+    for tp in TIME_PATTERNS:
+        tm = tp.search(sent)
+        if tm:
+            time_horizon = tm.group(0)
+            break
+    if PAST_KEYWORDS.search(sent):
+        tense = "past"
+    elif FUTURE_KEYWORDS.search(sent):
+        tense = "future"
+    else:
+        tense = "unknown"
+    return {
+        "title": sent[:80] + ("…" if len(sent) > 80 else ""),
+        "description": sent,
+        "target_value": num,
+        "metric_unit": unit,
+        "time_horizon": time_horizon,
+        "topic": topic,
+        "tense": tense,
+    }
+
+
 def extract_targets(content: str) -> list[dict]:
-    """從一段 content 切句子、找量化承諾。"""
+    """從一段 content 切句子、找量化承諾（阿拉伯數字優先，中文數字為補充）。"""
     out = []
-    # 句子切分
     sentences = re.split(r"[\n。！\?；]+", content)
     for sent in sentences:
         sent = sent.strip()
         if len(sent) < 5 or len(sent) > 300:
             continue
-        # 必須有行動詞或數字後跟單位
+        # 要有行動詞，避免「過去 X 年」這種客觀陳述
+        if not ACTION_KEYWORDS.search(sent):
+            continue
+        matched = False
+        # 1) 阿拉伯數字 + 單位（原邏輯）
         for pat, unit, mult in UNIT_PATTERNS:
             m = pat.search(sent)
             if not m:
                 continue
             num = to_number(m.group(1)) * mult
-            # 過小或過大都不取
             if num < 1 or num > 1e10:
                 continue
-            # 要有行動詞，避免「過去 X 年」這種
-            if not ACTION_KEYWORDS.search(sent):
-                continue
-            topic = detect_topic(sent) or "未分類"
-            # 時程
-            time_horizon = None
-            for tp in TIME_PATTERNS:
-                tm = tp.search(sent)
-                if tm:
-                    time_horizon = tm.group(0)
-                    break
-            # 判斷時態
-            if PAST_KEYWORDS.search(sent):
-                tense = "past"  # 過去達成
-            elif FUTURE_KEYWORDS.search(sent):
-                tense = "future"  # 未來承諾
-            else:
-                tense = "unknown"
-            out.append(
-                {
-                    "title": sent[:80] + ("…" if len(sent) > 80 else ""),
-                    "description": sent,
-                    "target_value": num,
-                    "metric_unit": unit,
-                    "time_horizon": time_horizon,
-                    "topic": topic,
-                    "tense": tense,
-                }
-            )
+            out.append(_build_target(sent, num, unit))
+            matched = True
             break  # 一句話只抽第一個量化承諾
+        # 2) 中文數字 + 單位（阿拉伯沒抓到時才補）
+        if not matched:
+            for m in _CN_PAT.finditer(sent):
+                num_str, unit = m.group("num"), m.group("unit")
+                val = cn2num(num_str)
+                if val is None or val < 1 or val > 1e10:
+                    continue
+                # 弱單位須含位數，擋掉裸「一人/一處」等成語誤判
+                if not _CN_STRONG_RE.match(unit) and not _CN_MAG_RE.search(num_str):
+                    continue
+                out.append(_build_target(sent, val, unit))
+                break
     return out
 
 
