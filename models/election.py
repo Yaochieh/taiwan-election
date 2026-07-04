@@ -150,6 +150,7 @@ class CandidatePlatformStatus(BaseModel):
     party_name: str | None = None
     color_hex: str | None = None
     district: str | None = None
+    background: str | None = None  # 總統選舉用來區分 正總統 / 副總統
     votes: float | None = None
     elected: int | None = None
     photo_path: str | None = None

@@ -1176,7 +1176,7 @@ def get_candidates_with_platform_status(election_id: int, district: str | None =
         photo_col = "c.photo_path" if "photo_path" in cols_check else "NULL AS photo_path"
         base_cols = f"""
             c.candidate_id, c.name AS candidate_name,
-            p.name AS party_name, p.color_hex,
+            p.name AS party_name, p.color_hex, c.background,
             er.district, er.votes, er.elected,
             {photo_col},
             (SELECT COUNT(*) FROM platforms pl
