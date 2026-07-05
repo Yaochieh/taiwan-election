@@ -135,8 +135,62 @@ def fetch_taipei_social_housing() -> tuple[float, str, str]:
     return done, url, f"北市社宅「已完工」{n_done} 案共 {done:.0f} 戶（戰情中心 API 即時值）"
 
 
+def _get_html(url: str) -> str:
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"})
+    return urllib.request.urlopen(req, timeout=30).read().decode("utf-8", "ignore")
+
+
+def fetch_moi_social_housing() -> tuple[float, str, str]:
+    """內政部社宅專區統計表（靜態HTML）：直建達成(完工+興建中+決標待開工) + 包租代管有效契約。
+
+    口徑與 target 31（賴清德 25 萬戶 = 直建13萬+包代12萬）一致。
+    """
+    import re
+    url = "https://pip.moi.gov.tw/v3/b/SCRB0501.aspx?mode=7"
+    text = re.sub(r"<[^>]+>", "", _get_html(url))
+    # 統計日期
+    m_date = re.search(r"截至\s*(\d{4})年(\d{1,2})月(\d{1,2})日", text)
+    as_of = f"{m_date.group(1)}-{int(m_date.group(2)):02d}-{int(m_date.group(3)):02d}" if m_date else "?"
+    # 「合計」段的小計列：完工/興建中/待開工/小計 四個逗號分組數字
+    seg = text[text.find("合計"):]
+    i = seg.rfind("小計", 0, 400)
+    nums = re.findall(r"\d{1,3}(?:,\d{3})+|\d{4,}", seg[i:i + 120])
+    vals = [int(n.replace(",", "")) for n in nums[:4]]
+    if len(vals) < 4 or vals[0] + vals[1] + vals[2] != vals[3]:
+        raise RuntimeError(f"社宅統計表解析驗算失敗（頁面改版？）: {nums[:6]}")
+    direct = vals[3]
+    m_pd = re.search(r"有效契約[^0-9]*([\d,]+)\s*戶", text)
+    if not m_pd:
+        raise RuntimeError("找不到包租代管有效契約數")
+    baodai = int(m_pd.group(1).replace(",", ""))
+    total = direct + baodai
+    note = (f"內政部社宅專區統計（截至{as_of}）：直接興建達成{direct:,}戶"
+            f"（完工{vals[0]:,}+興建中{vals[1]:,}+決標待開工{vals[2]:,}）"
+            f"+包租代管有效契約{baodai:,}戶＝{total:,}戶。口徑同前（達成+有效契約）")
+    return float(total), url, note
+
+
+def fetch_moea_renewable_share() -> tuple[float, str, str]:
+    """經濟部能源署發電概況頁：再生能源占比（靜態HTML句型解析）。"""
+    import re
+    url = "https://www.moeaea.gov.tw/ECW/populace/content/Content.aspx?menu_id=14437"
+    text = re.sub(r"<[^>]+>", "", _get_html(url))
+    # 錨定「再生能源占比由…」句，避免抓到太陽光電/風力等內部占比句
+    m = re.search(
+        r"再生能源占比由民國\s*\d{2,3}\s*年為\s*[\d.]+\s*[%％]?[，,]?\s*至民國\s*(\d{2,3})\s*年增加為\s*([\d.]+)\s*[%％]",
+        text)
+    if not m:
+        raise RuntimeError("能源署頁面句型變了，找不到再生能源占比")
+    year = int(m.group(1)) + 1911
+    share = float(m.group(2))
+    return share, url, f"能源署發電概況：民國{m.group(1)}年（{year}）再生能源發電占比 {share}%"
+
+
 FETCHERS = {
     "taipei_social_housing": fetch_taipei_social_housing,
+    "moi_social_housing": fetch_moi_social_housing,       # target 31 賴清德社宅
+    "moea_renewable_share": fetch_moea_renewable_share,   # target 813 再生能源
 }
 
 

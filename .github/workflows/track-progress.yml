@@ -20,11 +20,12 @@ jobs:
         with:
           python-version: "3.11"
 
-      # 目前可程式化的 fetcher：北市社宅戰情 API（target 684 柯文哲公宅）
-      # 新 fetcher 加進 scripts/track_target_progress.py 的 FETCHERS 後在此追加一行
+      # fetcher 定義在 scripts/track_target_progress.py 的 FETCHERS，新增後在此追加一行
+      # 684 柯文哲已結案(failed)不再更新
       - name: 抓取進度
         run: |
-          python scripts/track_target_progress.py fetch taipei_social_housing --target-id 684
+          python scripts/track_target_progress.py fetch moi_social_housing --target-id 31
+          python scripts/track_target_progress.py fetch moea_renewable_share --target-id 813
 
       - name: WAL checkpoint
         run: |
