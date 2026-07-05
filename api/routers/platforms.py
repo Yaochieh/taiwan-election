@@ -71,3 +71,9 @@ def get_candidate_platform_images(candidate_id: int, election_id: int = Query(..
 def flagship_targets():
     """首頁兌現追蹤看板：旗艦承諾 + 最新進度與來源"""
     return queries.get_flagship_targets()
+
+
+@router.get("/bill-matches/highlights")
+def bill_match_highlights():
+    """首頁政見×提案精選（總覽 + 代表案例）"""
+    return queries.get_bill_match_highlights()

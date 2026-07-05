@@ -1548,3 +1548,36 @@ def get_person_bill_matches(name: str) -> list[dict]:
                     "status": r["bill_status"], "url": r["bill_url"],
                 })
         return list(by_item.values())
+
+
+def get_bill_match_highlights(limit: int = 6) -> dict:
+    """首頁「政見×提案」精選：總覽數字 + 對照數最多的立委各取一筆代表對照。"""
+    with get_connection() as conn:
+        tables = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='platform_bill_matches'"
+        ).fetchall()
+        if not tables:
+            return {"people": 0, "matches": 0, "highlights": []}
+        people, matches = conn.execute(
+            "SELECT COUNT(DISTINCT person_name), COUNT(*) FROM platform_bill_matches"
+        ).fetchone()
+        # 每人取「該人對照數」與一筆代表（關鍵詞去重後最短標題的法案，較易讀）
+        rows = conn.execute("""
+            WITH per_person AS (
+                SELECT person_name, COUNT(*) AS n
+                FROM platform_bill_matches GROUP BY person_name
+                ORDER BY n DESC LIMIT ?
+            )
+            SELECT p.person_name, p.n,
+                   (SELECT keyword FROM platform_bill_matches m
+                    WHERE m.person_name = p.person_name
+                    ORDER BY length(m.bill_title) LIMIT 1) AS keyword,
+                   (SELECT bill_title FROM platform_bill_matches m
+                    WHERE m.person_name = p.person_name
+                    ORDER BY length(m.bill_title) LIMIT 1) AS bill_title
+            FROM per_person p
+        """, (limit,)).fetchall()
+        return {
+            "people": people, "matches": matches,
+            "highlights": [dict(r) for r in rows],
+        }
