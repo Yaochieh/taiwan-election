@@ -50,6 +50,7 @@ _DOMAIN_AUTH: list[tuple[str, tuple[str, str, int]]] = [
     ("newtalk.tw", ("新頭殼", "news", 3)),
     ("ksnews.com.tw", ("更生日報", "news", 3)),
     ("ctee.com.tw", ("工商時報", "news", 3)),
+    ("chinatimes.com", ("中國時報", "news", 3)),
     ("tfc-taiwan.org.tw", ("台灣事實查核中心", "fact_check", 2)),
     ("takao.kcg.gov.tw", ("高雄市政府", "gov_open_data", 1)),
 ]
