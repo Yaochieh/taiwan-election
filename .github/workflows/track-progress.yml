@@ -25,6 +25,7 @@ jobs:
       - name: 抓取進度
         run: |
           python scripts/track_target_progress.py fetch moi_social_housing --target-id 31
+          python scripts/track_target_progress.py fetch taichung_social_housing --target-id 3297
           python scripts/track_target_progress.py fetch moea_renewable_share --target-id 813
 
       - name: WAL checkpoint

@@ -141,34 +141,61 @@ def _get_html(url: str) -> str:
     return urllib.request.urlopen(req, timeout=30).read().decode("utf-8", "ignore")
 
 
+MOI_SH_URL = "https://pip.moi.gov.tw/v3/b/SCRB0501.aspx?mode=7"
+
+
+def _moi_sh_row(label_scope: str, row_label: str) -> tuple[list[int], str]:
+    """內政部社宅統計表：取某區域段(label_scope)內某列(row_label)的 6 個數字
+    [完工, 興建中, 決標待開工, 達成小計, 規劃中, 總計]，含加總驗算。"""
+    import re
+    html = _get_html(MOI_SH_URL)
+    m_date = re.search(r"截至\s*(\d{4})年(\d{1,2})月(\d{1,2})日", html)
+    as_of = (f"{m_date.group(1)}-{int(m_date.group(2)):02d}-{int(m_date.group(3)):02d}"
+             if m_date else "?")
+    i = html.find(label_scope)
+    if i < 0:
+        raise RuntimeError(f"找不到區域「{label_scope}」（頁面改版？）")
+    seg = html[i:i + 4000]
+    cells = re.findall(r"<t[dh][^>]*>\s*([^<]*?)\s*</t[dh]>", seg)
+    if row_label not in cells:
+        raise RuntimeError(f"「{label_scope}」段找不到列「{row_label}」")
+    j = cells.index(row_label)
+    vals = [int(c.replace(",", "")) for c in cells[j + 1:j + 7]]
+    if vals[0] + vals[1] + vals[2] != vals[3] or vals[3] + vals[4] != vals[5]:
+        raise RuntimeError(f"社宅統計表驗算失敗（頁面改版？）: {vals}")
+    return vals, as_of
+
+
 def fetch_moi_social_housing() -> tuple[float, str, str]:
-    """內政部社宅專區統計表（靜態HTML）：直建達成(完工+興建中+決標待開工) + 包租代管有效契約。
+    """全國社宅：直建達成(完工+興建中+決標待開工，全國小計) + 包租代管有效契約。
 
     口徑與 target 31（賴清德 25 萬戶 = 直建13萬+包代12萬）一致。
     """
     import re
-    url = "https://pip.moi.gov.tw/v3/b/SCRB0501.aspx?mode=7"
-    text = re.sub(r"<[^>]+>", "", _get_html(url))
-    # 統計日期
-    m_date = re.search(r"截至\s*(\d{4})年(\d{1,2})月(\d{1,2})日", text)
-    as_of = f"{m_date.group(1)}-{int(m_date.group(2)):02d}-{int(m_date.group(3)):02d}" if m_date else "?"
-    # 「合計」段的小計列：完工/興建中/待開工/小計 四個逗號分組數字
-    seg = text[text.find("合計"):]
-    i = seg.rfind("小計", 0, 400)
-    nums = re.findall(r"\d{1,3}(?:,\d{3})+|\d{4,}", seg[i:i + 120])
-    vals = [int(n.replace(",", "")) for n in nums[:4]]
-    if len(vals) < 4 or vals[0] + vals[1] + vals[2] != vals[3]:
-        raise RuntimeError(f"社宅統計表解析驗算失敗（頁面改版？）: {nums[:6]}")
-    direct = vals[3]
+    vals, as_of = _moi_sh_row("合計", "小計")
+    text = re.sub(r"<[^>]+>", "", _get_html(MOI_SH_URL))
     m_pd = re.search(r"有效契約[^0-9]*([\d,]+)\s*戶", text)
     if not m_pd:
         raise RuntimeError("找不到包租代管有效契約數")
     baodai = int(m_pd.group(1).replace(",", ""))
-    total = direct + baodai
-    note = (f"內政部社宅專區統計（截至{as_of}）：直接興建達成{direct:,}戶"
+    total = vals[3] + baodai
+    note = (f"內政部社宅專區統計（截至{as_of}）：直接興建達成{vals[3]:,}戶"
             f"（完工{vals[0]:,}+興建中{vals[1]:,}+決標待開工{vals[2]:,}）"
             f"+包租代管有效契約{baodai:,}戶＝{total:,}戶。口徑同前（達成+有效契約）")
-    return float(total), url, note
+    return float(total), MOI_SH_URL, note
+
+
+def fetch_taichung_social_housing() -> tuple[float, str, str]:
+    """台中市府興辦社宅（target 3297 盧秀燕 1.8 萬戶）：臺中市「地方」列總計。
+
+    口徑：盧政見「持續建置達1.8萬戶」為含規劃中之累計，取總計欄；
+    note 揭露分解與規劃中占比。
+    """
+    vals, as_of = _moi_sh_row("臺中市", "地方")
+    note = (f"內政部社宅專區統計（截至{as_of}）臺中市地方興辦：總計{vals[5]:,}戶"
+            f"（完工{vals[0]:,}+興建中{vals[1]:,}+決標待開工{vals[2]:,}+規劃中{vals[4]:,}）。"
+            f"口徑為其政見「建置」之累計數，含前任期興辦")
+    return float(vals[5]), MOI_SH_URL, note
 
 
 def fetch_moea_renewable_share() -> tuple[float, str, str]:
@@ -189,8 +216,9 @@ def fetch_moea_renewable_share() -> tuple[float, str, str]:
 
 FETCHERS = {
     "taipei_social_housing": fetch_taipei_social_housing,
-    "moi_social_housing": fetch_moi_social_housing,       # target 31 賴清德社宅
-    "moea_renewable_share": fetch_moea_renewable_share,   # target 813 再生能源
+    "moi_social_housing": fetch_moi_social_housing,           # target 31 賴清德社宅
+    "taichung_social_housing": fetch_taichung_social_housing, # target 3297 盧秀燕
+    "moea_renewable_share": fetch_moea_renewable_share,       # target 813 再生能源
 }
 
 
