@@ -153,8 +153,9 @@ def save_result(platform_id: int, polished: str, note_tag: str, targets: list,
             conn.execute(
                 """INSERT INTO platform_targets
                    (person_name, election_id, category, title, description,
-                    metric_unit, target_value, source_platform_id, auto_extracted)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+                    metric_unit, target_value, source_platform_id, auto_extracted,
+                    extraction_method)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'llm')""",
                 (
                     person_name,
                     election_id,
