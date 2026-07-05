@@ -35,10 +35,14 @@
 
 | # | 事項 | 做法 | 狀態 |
 |---|---|---|---|
-| R1 | targets 補骨架 | LLM 從 description 補 `target_date`（「四年內」→2028）、`baseline_value`（接 topic_data_sources 查當前值）；啟用 `status`：`in_progress/achieved/failed/stalled/unverifiable` | ☐ |
-| R2 | 清孤兒 | 處理 `platform_progress_sources` 21 筆孤兒（刪除或反向重建 progress 列）| ☐ |
+| R1 | targets 補骨架 | `backfill_target_dates.py` 補 41 筆 target_date；旗艦承諾 baseline 歸屬修正（社宅/再生能源設基準、租補低標揭露）| ✅ 2026-07-05 |
+| R2 | 清孤兒 | 已刪 21 筆孤兒，救回 2 個 gov API URL 進 registry | ✅ 2026-07-05 |
 | R3 | 管線合流 | `cn2num` 中文數字能力併入 `llm_extract_targets.py`；regex 版降級為 dry-run 稽核工具 | ☐ |
 | R4 | 刪死表 | `platform_categories` / `seats` 併入 v2 或移除 | ☐ |
+
+**P0 已完成（2026-07-05）**：追蹤鏈接通——10 條旗艦承諾有進度記錄（藍4綠5柯1，
+全數人工查證附來源），首頁「說到，做到了嗎？」開票式看板上線，
+`track-progress.yml` 每日自動抓取開 PR。
 
 ---
 

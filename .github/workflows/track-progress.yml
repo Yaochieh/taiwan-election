@@ -1,0 +1,57 @@
+name: 政見進度日更
+
+# 每天 10:00 (台北) 自動抓開放資料更新旗艦承諾進度，
+# 有變化才開 PR（不直接 push main，人工看過再 merge；數值沒變就不會有 PR）
+on:
+  schedule:
+    - cron: "0 2 * * *" # UTC 02:00 = 台北 10:00，每日
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      # 目前可程式化的 fetcher：北市社宅戰情 API（target 684 柯文哲公宅）
+      # 新 fetcher 加進 scripts/track_target_progress.py 的 FETCHERS 後在此追加一行
+      - name: 抓取進度
+        run: |
+          python scripts/track_target_progress.py fetch taipei_social_housing --target-id 684
+
+      - name: WAL checkpoint
+        run: |
+          python - << 'PY'
+          import sqlite3
+          sqlite3.connect("data/db.sqlite").execute("PRAGMA wal_checkpoint(TRUNCATE)")
+          PY
+
+      - name: 稽核 + 測試
+        run: |
+          pip -q install fastapi==0.135.2 uvicorn==0.42.0 pydantic==2.12.5 \
+            pandas==2.3.3 httpx==0.28.1 pytest
+          python scripts/audit_authenticity.py
+          python -m pytest tests/ -q
+
+      - name: 開 PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: auto/track-progress
+          title: "自動日更：旗艦承諾進度"
+          commit-message: |
+            data: 政見進度日更（自動抓取開放資料）
+
+            Co-Authored-By: github-actions <noreply@github.com>
+          body: |
+            每日自動抓取開放資料更新 `platform_target_progress`。
+            來源與數值見 diff；merge 後 Railway 自動部署。
+
+            🤖 由 track-progress workflow 產生
+          add-paths: data/db.sqlite

@@ -50,6 +50,13 @@ def record(conn, target_id: int, value: float, source_url: str, note: str | None
     print(f"  {t['person_name']}｜{t['title']}")
     print(f"  進度 {value} / {t['target_value']} {t['metric_unit'] or ''}（{pct}）")
     print(f"  來源 {source_url}")
+    # 數值與最新一筆相同就跳過（每日自動抓取不該累積重複列）
+    last = conn.execute(
+        "SELECT current_value FROM platform_target_progress WHERE target_id=? "
+        "ORDER BY recorded_at DESC LIMIT 1", (target_id,)).fetchone()
+    if last is not None and last["current_value"] == value:
+        print("  = 數值未變，跳過寫入")
+        return
     if dry:
         print("  [dry-run] 未寫入")
         return
