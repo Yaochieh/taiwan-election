@@ -37,8 +37,8 @@
 |---|---|---|---|
 | R1 | targets 補骨架 | `backfill_target_dates.py` 補 41 筆 target_date；旗艦承諾 baseline 歸屬修正（社宅/再生能源設基準、租補低標揭露）| ✅ 2026-07-05 |
 | R2 | 清孤兒 | 已刪 21 筆孤兒，救回 2 個 gov API URL 進 registry | ✅ 2026-07-05 |
-| R3 | 管線合流 | `cn2num` 中文數字能力併入 `llm_extract_targets.py`；regex 版降級為 dry-run 稽核工具 | ☐ |
-| R4 | 刪死表 | `platform_categories` / `seats` 併入 v2 或移除 | ☐ |
+| R3 | 管線合流 | regex 版已定位為稽核/dry-run 工具（docstring 註明），正式抽取用 LLM 管線（原生懂中文數字）；`extraction_method` 隔離兩管線 | ✅ 2026-07-05 |
+| R4 | 死表處置 | 調查後**保留**：`seats` 被 `/parties/seats` endpoint 引用、`platform_categories` 被 import_platforms.py 引用，刪除風險大於價值 | ✅ 2026-07-05（決策：不刪）|
 
 **P0 已完成（2026-07-05）**：追蹤鏈接通——10 條旗艦承諾有進度記錄（藍4綠5柯1，
 全數人工查證附來源），首頁「說到，做到了嗎？」開票式看板上線，

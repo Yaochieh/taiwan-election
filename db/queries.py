@@ -1541,6 +1541,9 @@ def get_person_bill_matches(name: str) -> list[dict]:
             })
             if r["keyword"] not in it["keywords"]:
                 it["keywords"].append(r["keyword"])
+            # bill_no='NONE' = 有政策關鍵詞但零相關提案（bills 留空）
+            if r["bill_no"] == "NONE":
+                continue
             # 同一法案可能被多個關鍵詞命中，去重
             if not any(b["no"] == r["bill_no"] for b in it["bills"]):
                 it["bills"].append({
@@ -1558,22 +1561,25 @@ def get_bill_match_highlights(limit: int = 6) -> dict:
         ).fetchall()
         if not tables:
             return {"people": 0, "matches": 0, "highlights": []}
+        # bill_no='NONE' 是「零相關提案」標記列，不算進對照數
         people, matches = conn.execute(
-            "SELECT COUNT(DISTINCT person_name), COUNT(*) FROM platform_bill_matches"
+            "SELECT COUNT(DISTINCT person_name), COUNT(*) FROM platform_bill_matches "
+            "WHERE bill_no != 'NONE'"
         ).fetchone()
         # 每人取「該人對照數」與一筆代表（關鍵詞去重後最短標題的法案，較易讀）
         rows = conn.execute("""
             WITH per_person AS (
                 SELECT person_name, COUNT(*) AS n
-                FROM platform_bill_matches GROUP BY person_name
+                FROM platform_bill_matches WHERE bill_no != 'NONE'
+                GROUP BY person_name
                 ORDER BY n DESC LIMIT ?
             )
             SELECT p.person_name, p.n,
                    (SELECT keyword FROM platform_bill_matches m
-                    WHERE m.person_name = p.person_name
+                    WHERE m.person_name = p.person_name AND m.bill_no != 'NONE'
                     ORDER BY length(m.bill_title) LIMIT 1) AS keyword,
                    (SELECT bill_title FROM platform_bill_matches m
-                    WHERE m.person_name = p.person_name
+                    WHERE m.person_name = p.person_name AND m.bill_no != 'NONE'
                     ORDER BY length(m.bill_title) LIMIT 1) AS bill_title
             FROM per_person p
         """, (limit,)).fetchall()

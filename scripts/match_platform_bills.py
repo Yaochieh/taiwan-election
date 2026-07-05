@@ -125,9 +125,12 @@ def main():
         if not bills:
             continue
         for seq, item in enumerate(split_items(r["content"]), 1):
+            hit_labels = []      # 此條政見命中的政策關鍵詞
+            item_matched = False  # 是否有任何提案對到
             for p_pat, b_pat, label in LEX:
                 if not p_pat.search(item):
                     continue
+                hit_labels.append(label)
                 for b in bills:
                     if not b_pat.search(b["title"]):
                         continue
@@ -140,7 +143,18 @@ def main():
                             (r["name"], r["platform_id"], seq, item[:300], label,
                              b["no"], b["title"][:200], b["status"], b["url"]))
                     n_match += 1
+                    item_matched = True
                     per_person[r["name"]] = per_person.get(r["name"], 0) + 1
+            # 有政策關鍵詞但零相關提案 → 記一筆 bill_no='NONE'
+            # （立委工作不只提案，此為中性事實，前端會附說明）
+            if hit_labels and not item_matched and not args.dry_run:
+                conn.execute(
+                    """INSERT OR IGNORE INTO platform_bill_matches
+                       (person_name, platform_id, item_seq, item_text, keyword,
+                        bill_no, bill_title, bill_status, bill_url)
+                       VALUES (?,?,?,?,?,'NONE','','','')""",
+                    (r["name"], r["platform_id"], seq, item[:300],
+                     "、".join(hit_labels)))
     if not args.dry_run:
         conn.commit()
     total_people = len(per_person)

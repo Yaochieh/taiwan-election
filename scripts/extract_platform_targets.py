@@ -1,5 +1,9 @@
 """
-從政見內文自動抽取量化承諾。
+從政見內文自動抽取量化承諾（regex 版）。
+
+★ 定位（2026-07-05 起）：本腳本為【稽核/dry-run 工具】，正式抽取管線是
+  llm_extract_targets.py（LLM 原生理解中文數字，品質較高且有驗證欄位）。
+  需要正式寫入時務必確認 extraction_method 隔離（本腳本只刪 'regex' rows）。
 
 支援 patterns：
   - 數量單位：N 萬戶 / N 千戶 / N 戶 / N 億 / N 萬元 / N 件 / N 床 / N 人 / N 公里
