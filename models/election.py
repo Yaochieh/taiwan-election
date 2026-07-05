@@ -19,6 +19,16 @@ class ElectionDetail(Election):
     pass
 
 
+class ElectionMilestone(BaseModel):
+    """選舉時程里程碑（中選會工作進行程序表）"""
+    vote_date: str
+    date: str
+    date_end: str | None = None
+    label: str
+    note: str | None = None
+    source_url: str
+
+
 class Party(BaseModel):
     party_id: int
     name: str

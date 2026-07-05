@@ -7,6 +7,7 @@ from models import (
     District,
     ElectedCount,
     ElectionCycle,
+    ElectionMilestone,
     ElectionResult,
     NationalTotal,
     TotalVotes,
@@ -39,6 +40,13 @@ def list_election_cycles():
 def list_elected_counts():
     """所有選舉的當選人數"""
     df = queries.get_elected_count_by_election()
+    return df_to_records(df)
+
+
+@router.get("/milestones", response_model=list[ElectionMilestone])
+def list_election_milestones(vote_date: str | None = Query(None)):
+    """選舉時程里程碑（中選會工作進行程序表）；預設回傳最近一個未來投票日"""
+    df = queries.get_election_milestones(vote_date)
     return df_to_records(df)
 
 

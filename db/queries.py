@@ -97,6 +97,23 @@ def get_elections_by_status(status: str) -> pd.DataFrame:
         )
 
 
+def get_election_milestones(vote_date: str | None = None) -> pd.DataFrame:
+    """選舉時程里程碑；未指定 vote_date 時回傳最近一個未來投票日的時程"""
+    with get_connection() as conn:
+        if vote_date is None:
+            row = conn.execute(
+                "SELECT MIN(vote_date) FROM election_milestones WHERE vote_date >= date('now')"
+            ).fetchone()
+            vote_date = row[0] if row else None
+        if vote_date is None:
+            return pd.DataFrame()
+        return pd.read_sql_query(
+            """SELECT vote_date, date, date_end, label, note, source_url
+               FROM election_milestones WHERE vote_date = ? ORDER BY date""",
+            conn, params=(vote_date,)
+        )
+
+
 def get_election_by_id(election_id: int) -> dict | None:
     with get_connection() as conn:
         row = conn.execute(
@@ -400,7 +417,7 @@ def get_person_targets(name: str) -> list[dict]:
                 SELECT progress_id, recorded_at, current_value, note, source_url
                 FROM platform_target_progress
                 WHERE target_id = ?
-                ORDER BY recorded_at
+                ORDER BY recorded_at, progress_id
             """, (t["target_id"],)).fetchall()
             progress = []
             for p in progress_rows:
@@ -1494,7 +1511,7 @@ def get_flagship_targets() -> list[dict]:
             p = conn.execute("""
                 SELECT progress_id, recorded_at, current_value, note, source_url
                 FROM platform_target_progress
-                WHERE target_id = ? ORDER BY recorded_at DESC LIMIT 1
+                WHERE target_id = ? ORDER BY recorded_at DESC, progress_id DESC LIMIT 1
             """, (r["target_id"],)).fetchone()
             if not p or p["current_value"] is None:
                 continue  # 看板只列已有進度記錄的
@@ -1637,7 +1654,7 @@ def get_quantification_stats() -> dict:
         prog = conn.execute("""
             SELECT t.target_id, t.baseline_value, t.target_value,
                    (SELECT current_value FROM platform_target_progress p
-                    WHERE p.target_id=t.target_id ORDER BY recorded_at DESC LIMIT 1) AS latest
+                    WHERE p.target_id=t.target_id ORDER BY recorded_at DESC, progress_id DESC LIMIT 1) AS latest
             FROM platform_targets t
             WHERE EXISTS (SELECT 1 FROM platform_target_progress p WHERE p.target_id=t.target_id)
         """).fetchall()

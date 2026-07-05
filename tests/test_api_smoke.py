@@ -89,3 +89,23 @@ def test_candidate_platforms_filtered():
     r2 = client.get(f"/platforms/candidates/{cid}?election_id=51")
     assert r2.status_code == 200
     assert all(p["candidate_id"] == cid for p in r2.json())
+
+
+def test_election_milestones():
+    """選舉時程里程碑：最近投票日 2026-11-28 應有 12 筆且含投票日"""
+    r = client.get("/elections/milestones")
+    assert r.status_code == 200
+    rows = r.json()
+    assert len(rows) == 12
+    assert rows[-1]["date"] == "2026-11-28"
+    assert all(m["source_url"].startswith("https://web.cec.gov.tw") for m in rows)
+
+
+def test_flagship_closed_target_uses_final_value():
+    """結案 target 的 latest 取最終修正值（同日多筆以 progress_id 最新為準）——柯文哲 684 應為 5,062 而非 12,926"""
+    r = client.get("/platforms/targets/flagship")
+    assert r.status_code == 200
+    ko = next(t for t in r.json() if t["target_id"] == 684)
+    assert ko["status"] == "failed"
+    assert ko["latest_value"] == 5062.0
+    assert ko["progress_pct"] < 100
