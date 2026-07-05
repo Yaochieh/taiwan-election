@@ -1491,12 +1491,17 @@ def get_flagship_targets() -> list[dict]:
         for r in rows:
             row = dict(r)
             p = conn.execute("""
-                SELECT recorded_at, current_value, note, source_url
+                SELECT progress_id, recorded_at, current_value, note, source_url
                 FROM platform_target_progress
                 WHERE target_id = ? ORDER BY recorded_at DESC LIMIT 1
             """, (r["target_id"],)).fetchone()
             if not p or p["current_value"] is None:
                 continue  # 看板只列已有進度記錄的
+            # 多來源（官方/媒體交叉），authority_level 升冪 = 官方在前
+            srcs = conn.execute("""
+                SELECT url, publisher, authority_level FROM platform_progress_sources
+                WHERE progress_id = ? ORDER BY authority_level, source_id
+            """, (p["progress_id"],)).fetchall()
             base = row["baseline_value"] if row["baseline_value"] is not None else 0
             tv = row["target_value"]
             row.update(
@@ -1504,6 +1509,7 @@ def get_flagship_targets() -> list[dict]:
                 recorded_at=p["recorded_at"],
                 progress_note=p["note"],
                 progress_source_url=p["source_url"],
+                sources=[dict(s) for s in srcs],
                 progress_pct=(
                     round(max(0.0, (p["current_value"] - base) / (tv - base) * 100), 1)
                     if tv is not None and tv != base else None
@@ -1586,4 +1592,96 @@ def get_bill_match_highlights(limit: int = 6) -> dict:
         return {
             "people": people, "matches": matches,
             "highlights": [dict(r) for r in rows],
+        }
+
+
+def get_quantification_stats() -> dict:
+    """政見量化統計：漏斗（條目→量化→當選→有進度→達標）+ 政黨量化比例 + 歷年。
+
+    「條目」= 政見全文按 1. 2. 3. 拆分的項目數；
+    「量化承諾」= platform_targets（LLM/manual 抽取，有具體數字或可檢驗事實）。
+    """
+    import re
+    item_split = re.compile(r"\n(?=\d+[\.、）\)])")
+
+    def n_items(content: str | None) -> int:
+        if not content:
+            return 0
+        parts = [p for p in item_split.split(content) if len(p.strip()) >= 8]
+        return len(parts) if len(parts) >= 2 else 1
+
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT pl.platform_id, pl.content, pl.election_id,
+                   substr(e.date,1,4) AS year, e.type,
+                   COALESCE(pa.name,'無黨籍/未載明') AS party_name,
+                   COALESCE(MAX(er.elected),0) AS elected
+            FROM platforms pl
+            JOIN candidates c ON pl.candidate_id = c.candidate_id
+            JOIN elections e ON pl.election_id = e.election_id
+            LEFT JOIN parties pa ON c.party_id = pa.party_id
+            LEFT JOIN election_results er
+                   ON er.candidate_id = c.candidate_id AND er.election_id = pl.election_id
+            GROUP BY pl.platform_id
+        """).fetchall()
+        # 每份政見的量化承諾數
+        tmap = {r[0]: r[1] for r in conn.execute(
+            "SELECT source_platform_id, COUNT(*) FROM platform_targets "
+            "WHERE source_platform_id IS NOT NULL GROUP BY source_platform_id")}
+        # 承諾層級：總數 / 當選者 / 有進度 / 達標
+        total_targets = conn.execute("SELECT COUNT(*) FROM platform_targets").fetchone()[0]
+        elected_targets = conn.execute(
+            "SELECT COUNT(*) FROM platform_targets WHERE verification_status='in_office'"
+        ).fetchone()[0]
+        prog = conn.execute("""
+            SELECT t.target_id, t.baseline_value, t.target_value,
+                   (SELECT current_value FROM platform_target_progress p
+                    WHERE p.target_id=t.target_id ORDER BY recorded_at DESC LIMIT 1) AS latest
+            FROM platform_targets t
+            WHERE EXISTS (SELECT 1 FROM platform_target_progress p WHERE p.target_id=t.target_id)
+        """).fetchall()
+        with_progress = len(prog)
+        met = 0
+        for r in prog:
+            base = r["baseline_value"] if r["baseline_value"] is not None else 0
+            tv = r["target_value"]
+            if tv is not None and r["latest"] is not None and tv != base:
+                if (r["latest"] - base) / (tv - base) >= 1:
+                    met += 1
+
+        # 聚合：政黨 / 歷年
+        by_party: dict[str, dict] = {}
+        by_year: dict[str, dict] = {}
+        items_total = 0
+        for r in rows:
+            n = n_items(r["content"])
+            t = tmap.get(r["platform_id"], 0)
+            items_total += n
+            p = by_party.setdefault(r["party_name"], {
+                "party": r["party_name"], "platforms": 0, "items": 0,
+                "targets": 0, "with_target": 0})
+            p["platforms"] += 1
+            p["items"] += n
+            p["targets"] += t
+            p["with_target"] += 1 if t else 0
+            y = by_year.setdefault(r["year"], {
+                "year": r["year"], "platforms": 0, "items": 0, "targets": 0})
+            y["platforms"] += 1
+            y["items"] += n
+            y["targets"] += t
+        parties = sorted(by_party.values(), key=lambda x: -x["platforms"])
+        for p in parties:
+            p["quantified_pct"] = round(p["with_target"] / p["platforms"] * 100, 1) if p["platforms"] else 0
+        years = sorted(by_year.values(), key=lambda x: x["year"])
+
+        return {
+            "funnel": {
+                "items": items_total,
+                "targets": total_targets,
+                "elected_targets": elected_targets,
+                "with_progress": with_progress,
+                "met": met,
+            },
+            "parties": parties[:10],
+            "years": years,
         }

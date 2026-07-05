@@ -77,3 +77,9 @@ def flagship_targets():
 def bill_match_highlights():
     """首頁政見×提案精選（總覽 + 代表案例）"""
     return queries.get_bill_match_highlights()
+
+
+@router.get("/quantification-stats")
+def quantification_stats():
+    """政見量化統計：漏斗 + 政黨量化比例 + 歷年"""
+    return queries.get_quantification_stats()

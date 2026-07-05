@@ -37,19 +37,43 @@ def ensure_flagship_column(conn):
         conn.commit()
 
 
-def record(conn, target_id: int, value: float, source_url: str, note: str | None, dry: bool):
+# 來源網域 → (publisher, source_type, authority_level 1官方/2監督/3媒體/4其他)
+_DOMAIN_AUTH: list[tuple[str, tuple[str, str, int]]] = [
+    (".gov.tw", ("政府機關", "gov_open_data", 1)),
+    (".gov.taipei", ("臺北市政府", "gov_open_data", 1)),
+    ("cna.com.tw", ("中央社", "news", 3)),
+    ("udn.com", ("聯合報系", "news", 3)),
+    ("ltn.com.tw", ("自由時報", "news", 3)),
+    ("cw.com.tw", ("天下雜誌", "news", 3)),
+    ("e-info.org.tw", ("環境資訊中心", "news", 3)),
+    ("newtalk.tw", ("新頭殼", "news", 3)),
+    ("ksnews.com.tw", ("更生日報", "news", 3)),
+]
+
+
+def classify_source(url: str) -> tuple[str, str, int]:
+    for dom, meta in _DOMAIN_AUTH:
+        if dom in url:
+            return meta
+    return ("其他來源", "other", 4)
+
+
+def record(conn, target_id: int, value: float, source_urls: list[str],
+           note: str | None, dry: bool):
     t = conn.execute(
         "SELECT person_name, title, target_value, metric_unit FROM platform_targets WHERE target_id=?",
         (target_id,),
     ).fetchone()
     if not t:
         sys.exit(f"✗ target_id {target_id} 不存在")
-    if not source_url:
-        sys.exit("✗ 必須提供 --source-url（資料一定標來源）")
+    if not source_urls:
+        sys.exit("✗ 必須提供至少一個 --source-url（資料一定標來源）")
     pct = f"{value / t['target_value'] * 100:.1f}%" if t["target_value"] else "?"
     print(f"  {t['person_name']}｜{t['title']}")
     print(f"  進度 {value} / {t['target_value']} {t['metric_unit'] or ''}（{pct}）")
-    print(f"  來源 {source_url}")
+    for u in source_urls:
+        pub, _, lv = classify_source(u)
+        print(f"  來源[{pub}·L{lv}] {u}")
     # 數值與最新一筆相同就跳過（每日自動抓取不該累積重複列）
     last = conn.execute(
         "SELECT current_value FROM platform_target_progress WHERE target_id=? "
@@ -60,14 +84,24 @@ def record(conn, target_id: int, value: float, source_url: str, note: str | None
     if dry:
         print("  [dry-run] 未寫入")
         return
-    conn.execute(
+    cur = conn.execute(
         """INSERT INTO platform_target_progress
            (target_id, recorded_at, current_value, note, source_url)
            VALUES (?, ?, ?, ?, ?)""",
-        (target_id, date.today().isoformat(), value, note, source_url),
+        (target_id, date.today().isoformat(), value, note, source_urls[0]),
     )
+    progress_id = cur.lastrowid
+    # 全部來源寫入 platform_progress_sources（多來源，含權威分級）
+    for u in source_urls:
+        pub, stype, lv = classify_source(u)
+        conn.execute(
+            """INSERT INTO platform_progress_sources
+               (progress_id, url, source_type, publisher, authority_level, retrieved_at)
+               VALUES (?, ?, ?, ?, ?, datetime('now'))""",
+            (progress_id, u, stype, pub, lv),
+        )
     conn.commit()
-    print("  ✓ 已寫入 platform_target_progress")
+    print(f"  ✓ 已寫入 progress + {len(source_urls)} 個來源")
 
 
 # ── 自動 fetcher（可插拔）───────────────────────────────────────────────────
@@ -129,7 +163,8 @@ def main():
     p_rec = sub.add_parser("record", help="人工查證後記錄進度")
     p_rec.add_argument("target_id", type=int)
     p_rec.add_argument("current_value", type=float)
-    p_rec.add_argument("--source-url", required=True)
+    p_rec.add_argument("--source-url", required=True, action="append",
+                       help="可重複多次以附多個來源（官方+媒體交叉）")
     p_rec.add_argument("--note")
     p_rec.add_argument("--dry-run", action="store_true")
     p_fetch = sub.add_parser("fetch", help="自動抓取開放資料")
@@ -144,10 +179,10 @@ def main():
     if args.cmd == "list":
         cmd_list(conn)
     elif args.cmd == "record":
-        record(conn, args.target_id, args.current_value, args.source_url, args.note, args.dry_run)
+        record(conn, args.target_id, args.current_value, args.source_url, args.note, args.dry_run)  # list
     elif args.cmd == "fetch":
         value, url, note = FETCHERS[args.fetcher]()
-        record(conn, args.target_id, value, url, note, args.dry_run)
+        record(conn, args.target_id, value, [url], note, args.dry_run)
     conn.close()
 
 
