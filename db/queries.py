@@ -1480,7 +1480,7 @@ def get_flagship_targets() -> list[dict]:
         rows = conn.execute("""
             SELECT t.target_id, t.person_name, t.title, t.category,
                    t.target_value, t.metric_unit, t.baseline_value, t.target_date,
-                   t.verification_status, t.verification_source, t.verification_note,
+                   t.status, t.verification_status, t.verification_source, t.verification_note,
                    pa.name AS party_name, pa.color_hex
             FROM platform_targets t
             LEFT JOIN candidates c
