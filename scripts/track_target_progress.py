@@ -41,6 +41,7 @@ def ensure_flagship_column(conn):
 _DOMAIN_AUTH: list[tuple[str, tuple[str, str, int]]] = [
     (".gov.tw", ("政府機關", "gov_open_data", 1)),
     (".gov.taipei", ("臺北市政府", "gov_open_data", 1)),
+    ("tn.edu.tw", ("臺南市政府教育局", "gov_open_data", 1)),
     ("cna.com.tw", ("中央社", "news", 3)),
     ("udn.com", ("聯合報系", "news", 3)),
     ("ltn.com.tw", ("自由時報", "news", 3)),
