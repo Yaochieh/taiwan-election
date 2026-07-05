@@ -1512,3 +1512,39 @@ def get_flagship_targets() -> list[dict]:
             out.append(row)
         out.sort(key=lambda x: -(x["progress_pct"] or 0))
         return out
+
+
+def get_person_bill_matches(name: str) -> list[dict]:
+    """某立委的政見×提案對照（match_platform_bills.py 產出），按政見條目分組。
+
+    語意是「相關提案」，不是「已兌現」；規則見 scripts/match_platform_bills.py LEXICON。
+    """
+    with get_connection() as conn:
+        tables = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='platform_bill_matches'"
+        ).fetchall()
+        if not tables:
+            return []
+        rows = conn.execute("""
+            SELECT item_seq, item_text, keyword, bill_no, bill_title, bill_status, bill_url
+            FROM platform_bill_matches
+            WHERE person_name = ?
+            ORDER BY item_seq, keyword, bill_no
+        """, (name,)).fetchall()
+        by_item: dict[int, dict] = {}
+        for r in rows:
+            it = by_item.setdefault(r["item_seq"], {
+                "item_seq": r["item_seq"],
+                "item_text": r["item_text"],
+                "keywords": [],
+                "bills": [],
+            })
+            if r["keyword"] not in it["keywords"]:
+                it["keywords"].append(r["keyword"])
+            # 同一法案可能被多個關鍵詞命中，去重
+            if not any(b["no"] == r["bill_no"] for b in it["bills"]):
+                it["bills"].append({
+                    "no": r["bill_no"], "title": r["bill_title"],
+                    "status": r["bill_status"], "url": r["bill_url"],
+                })
+        return list(by_item.values())

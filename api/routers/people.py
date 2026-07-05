@@ -23,3 +23,9 @@ def person_targets(name: str):
 def person_topic_distribution(name: str):
     """該政治人物各主題政見的分布（用於雷達圖）"""
     return queries.get_person_topic_distribution(name)
+
+
+@router.get("/{name}/bill-matches")
+def person_bill_matches(name: str):
+    """立委政見×立院提案 關鍵詞對照（相關提案，非兌現認定）"""
+    return queries.get_person_bill_matches(name)
