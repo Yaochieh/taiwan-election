@@ -630,6 +630,12 @@ def get_person_profile(name: str) -> dict:
             "win_rate": total_wins / total_races if total_races > 0 else 0,
             "races": races,
             "party_history": parties,
+            "recalls": [dict(r) for r in conn.execute("""
+                SELECT rr.election_id, e.name AS election_name, e.date,
+                       rr.target_office, rr.district, rr.agree_votes, rr.disagree_votes,
+                       rr.threshold_votes, rr.threshold_met, rr.passed, rr.note, rr.source_url
+                FROM recall_results rr JOIN elections e ON e.election_id = rr.election_id
+                WHERE rr.target_name = ? ORDER BY e.date""", (name,)).fetchall()],
         }
 
 
