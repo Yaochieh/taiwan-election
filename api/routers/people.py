@@ -29,3 +29,12 @@ def person_topic_distribution(name: str):
 def person_bill_matches(name: str):
     """立委政見×立院提案 關鍵詞對照（相關提案，非兌現認定）"""
     return queries.get_person_bill_matches(name)
+
+
+@router.get("/{name}/comparison")
+def person_platform_comparison(name: str):
+    """同一人同類型選舉最近兩屆政見對照（含主題延續/新增/消失）"""
+    cmp = queries.get_person_platform_comparison(name)
+    if not cmp:
+        raise HTTPException(status_code=404, detail="無兩屆同類型政見可對照")
+    return cmp

@@ -639,6 +639,58 @@ def get_person_profile(name: str) -> dict:
         }
 
 
+def get_person_platform_comparison(name: str) -> dict | None:
+    """同一人同類型選舉的最近兩屆政見對照（跨屆連任/再戰比較）。
+
+    回傳 None 表示該人沒有兩屆同類型且都有政見的參選紀錄。
+    """
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT c.candidate_id, e.election_id, e.name AS election_name,
+                   e.type, e.date, pl.content,
+                   (SELECT MAX(er.elected) FROM election_results er
+                    WHERE er.candidate_id = c.candidate_id) AS elected
+            FROM candidates c
+            JOIN elections e ON e.election_id = c.election_id
+            JOIN platforms pl ON pl.candidate_id = c.candidate_id
+            WHERE c.name = ?
+            ORDER BY e.date DESC
+        """, (name,)).fetchall()
+        # 找同 type 的最近兩屆
+        by_type: dict[str, list] = {}
+        for r in rows:
+            by_type.setdefault(r["type"], []).append(r)
+        pair = next((v[:2] for v in by_type.values() if len(v) >= 2), None)
+        if not pair:
+            return None
+        newer, older = pair
+
+        def topics_of(candidate_id: int) -> list[str]:
+            return [r[0] for r in conn.execute("""
+                SELECT DISTINCT pt.name FROM platform_topic_links ptl
+                JOIN platform_topics pt ON pt.topic_id = ptl.topic_id
+                JOIN platforms pl ON pl.platform_id = ptl.platform_id
+                WHERE pl.candidate_id = ? ORDER BY ptl.score DESC
+            """, (candidate_id,)).fetchall()]
+
+        t_new, t_old = topics_of(newer["candidate_id"]), topics_of(older["candidate_id"])
+
+        def pack(r):
+            return {
+                "election_id": r["election_id"], "election_name": r["election_name"],
+                "date": r["date"], "content": r["content"], "elected": r["elected"],
+            }
+        return {
+            "person_name": name,
+            "election_type": newer["type"],
+            "older": pack(older),
+            "newer": pack(newer),
+            "topics_continued": [t for t in t_new if t in t_old],
+            "topics_added": [t for t in t_new if t not in t_old],
+            "topics_dropped": [t for t in t_old if t not in t_new],
+        }
+
+
 def unified_search(query: str, limit: int = 50) -> dict:
     """跨站搜尋：候選人、政黨、選舉、政見內容。"""
     q_like = f"%{query}%"
