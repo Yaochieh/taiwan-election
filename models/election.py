@@ -158,6 +158,8 @@ class Platform(BaseModel):
     source_url: str | None = None
     note: str | None = None
     content_raw: str | None = None
+    # 由本政見抽出的量化承諾數；0 = 無可客觀檢驗的承諾
+    target_count: int | None = None
 
 
 class PlatformSource(BaseModel):

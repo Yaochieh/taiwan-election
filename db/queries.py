@@ -1142,7 +1142,15 @@ def get_platforms_by_election(election_id: int) -> pd.DataFrame:
             """
             SELECT c.candidate_id, c.name AS candidate_name,
                    p.name AS party_name, p.color_hex,
-                   pl.seq, pl.content, pl.content_raw, pl.source_url, pl.note
+                   pl.seq, pl.content, pl.content_raw, pl.source_url, pl.note,
+                   -- 該選舉跑過量化抽取才回傳數字，否則 NULL（避免把「未抽取」誤標為「無可量化」）
+                   CASE WHEN EXISTS (
+                        SELECT 1 FROM platform_targets pt2
+                        JOIN platforms pl2 ON pt2.source_platform_id = pl2.platform_id
+                        WHERE pl2.election_id = pl.election_id)
+                   THEN (SELECT COUNT(*) FROM platform_targets pt
+                         WHERE pt.source_platform_id = pl.platform_id)
+                   END AS target_count
             FROM platforms pl
             JOIN candidates c ON pl.candidate_id = c.candidate_id
             LEFT JOIN parties p ON c.party_id = p.party_id
@@ -1160,7 +1168,15 @@ def get_platforms_by_candidate(candidate_id: int, election_id: int) -> pd.DataFr
             """
             SELECT c.candidate_id, c.name AS candidate_name,
                    p.name AS party_name, p.color_hex,
-                   pl.seq, pl.content, pl.content_raw, pl.source_url, pl.note
+                   pl.seq, pl.content, pl.content_raw, pl.source_url, pl.note,
+                   -- 該選舉跑過量化抽取才回傳數字，否則 NULL（避免把「未抽取」誤標為「無可量化」）
+                   CASE WHEN EXISTS (
+                        SELECT 1 FROM platform_targets pt2
+                        JOIN platforms pl2 ON pt2.source_platform_id = pl2.platform_id
+                        WHERE pl2.election_id = pl.election_id)
+                   THEN (SELECT COUNT(*) FROM platform_targets pt
+                         WHERE pt.source_platform_id = pl.platform_id)
+                   END AS target_count
             FROM platforms pl
             JOIN candidates c ON pl.candidate_id = c.candidate_id
             LEFT JOIN parties p ON c.party_id = p.party_id
