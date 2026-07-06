@@ -8,6 +8,7 @@ from models import (
     ElectedCount,
     ElectionCycle,
     ElectionMilestone,
+    RecallResult,
     ElectionResult,
     NationalTotal,
     TotalVotes,
@@ -47,6 +48,13 @@ def list_elected_counts():
 def list_election_milestones(vote_date: str | None = Query(None)):
     """選舉時程里程碑（中選會工作進行程序表）；預設回傳最近一個未來投票日"""
     df = queries.get_election_milestones(vote_date)
+    return df_to_records(df)
+
+
+@router.get("/recalls", response_model=list[RecallResult])
+def list_recall_results(election_id: int | None = Query(None)):
+    """罷免投票結果（2025 大罷免等）"""
+    df = queries.get_recall_results(election_id)
     return df_to_records(df)
 
 

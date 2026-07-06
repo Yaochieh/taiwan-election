@@ -109,3 +109,18 @@ def test_flagship_closed_target_uses_final_value():
     assert ko["status"] == "failed"
     assert ko["latest_value"] == 5062.0
     assert ko["progress_pct"] < 100
+
+
+def test_recall_results():
+    """罷免結果：33案全數否決、7案達門檻、每案同意+不同意=有效票"""
+    r = client.get("/elections/recalls")
+    assert r.status_code == 200
+    rows = r.json()
+    assert len(rows) == 33
+    assert all(x["passed"] == 0 for x in rows)
+    assert sum(x["threshold_met"] for x in rows) == 7
+    for x in rows:
+        if x["valid_votes"] is not None:
+            assert x["agree_votes"] + x["disagree_votes"] == x["valid_votes"], x["target_name"]
+    ko = next(x for x in rows if x["target_name"] == "高虹安")
+    assert ko["agree_votes"] == 86291 and ko["disagree_votes"] == 124360

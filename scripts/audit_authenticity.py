@@ -82,6 +82,7 @@ def run_checks(conn, verbose=False):
     findings["e_completed_no_results"] = [r[0] for r in conn.execute(
         "SELECT e.election_id FROM elections e WHERE e.status='completed' "
         "AND NOT EXISTS (SELECT 1 FROM election_results er WHERE er.election_id=e.election_id) "
+        "AND NOT EXISTS (SELECT 1 FROM recall_results rr WHERE rr.election_id=e.election_id) "
         "ORDER BY e.election_id").fetchall()]
 
     return findings

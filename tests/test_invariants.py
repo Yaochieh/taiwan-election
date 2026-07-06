@@ -108,13 +108,13 @@ def test_query_layer_no_double_count():
 
 
 def test_completed_elections_have_results(conn):
-    """completed 選舉必須有結果（豁免：89/90 大罷免，結果待匯入）"""
-    exempt = {89, 90}
+    """completed 選舉必須有結果（一般選舉在 election_results，罷免在 recall_results）"""
     rows = conn.execute("""
         SELECT e.election_id FROM elections e WHERE e.status='completed'
         AND NOT EXISTS (SELECT 1 FROM election_results er WHERE er.election_id=e.election_id)
+        AND NOT EXISTS (SELECT 1 FROM recall_results rr WHERE rr.election_id=e.election_id)
     """).fetchall()
-    bad = [r[0] for r in rows if r[0] not in exempt]
+    bad = [r[0] for r in rows]
     assert not bad, f"completed 但無結果: {bad}"
 
 

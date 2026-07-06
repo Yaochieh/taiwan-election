@@ -114,6 +114,22 @@ def get_election_milestones(vote_date: str | None = None) -> pd.DataFrame:
         )
 
 
+def get_recall_results(election_id: int | None = None) -> pd.DataFrame:
+    """罷免投票結果；未指定 election_id 時回傳全部（新→舊）"""
+    with get_connection() as conn:
+        sql = """SELECT r.election_id, e.name AS election_name, e.date,
+                        r.target_name, r.target_office, r.party, r.district,
+                        r.electors, r.threshold_votes, r.agree_votes, r.disagree_votes,
+                        r.valid_votes, r.invalid_votes, r.total_votes,
+                        r.threshold_met, r.passed, r.note, r.source_url
+                 FROM recall_results r JOIN elections e ON e.election_id=r.election_id"""
+        if election_id is not None:
+            return pd.read_sql_query(
+                sql + " WHERE r.election_id=? ORDER BY r.agree_votes DESC",
+                conn, params=(election_id,))
+        return pd.read_sql_query(sql + " ORDER BY e.date DESC, r.agree_votes DESC", conn)
+
+
 def get_election_by_id(election_id: int) -> dict | None:
     with get_connection() as conn:
         row = conn.execute(

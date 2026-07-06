@@ -19,6 +19,28 @@ class ElectionDetail(Election):
     pass
 
 
+class RecallResult(BaseModel):
+    """罷免投票結果（同意/不同意票）"""
+    election_id: int
+    election_name: str
+    date: str
+    target_name: str
+    target_office: str
+    party: str | None = None
+    district: str | None = None
+    electors: int | None = None
+    threshold_votes: int | None = None
+    agree_votes: int
+    disagree_votes: int
+    valid_votes: int | None = None
+    invalid_votes: int | None = None
+    total_votes: int | None = None
+    threshold_met: int
+    passed: int
+    note: str | None = None
+    source_url: str
+
+
 class ElectionMilestone(BaseModel):
     """選舉時程里程碑（中選會工作進行程序表）"""
     vote_date: str
