@@ -82,7 +82,7 @@ def record(conn, target_id: int, value: float, source_urls: list[str],
     # 數值與最新一筆相同就跳過（每日自動抓取不該累積重複列）
     last = conn.execute(
         "SELECT current_value FROM platform_target_progress WHERE target_id=? "
-        "ORDER BY recorded_at DESC LIMIT 1", (target_id,)).fetchone()
+        "ORDER BY recorded_at DESC, progress_id DESC LIMIT 1", (target_id,)).fetchone()
     if last is not None and last["current_value"] == value:
         print("  = 數值未變，跳過寫入")
         return
@@ -137,10 +137,24 @@ def fetch_taipei_social_housing() -> tuple[float, str, str]:
     return done, url, f"北市社宅「已完工」{n_done} 案共 {done:.0f} 戶（戰情中心 API 即時值）"
 
 
-def _get_html(url: str) -> str:
+def _get_html(url: str, retries: int = 3, wait: int = 20, expect: str | None = None) -> str:
+    """抓頁面；CI runner 偶被政府網站擋（連線失敗或回擋爬蟲頁），
+    連線例外或內容缺少 expect 關鍵字時重試（線性退避）"""
+    import time
     req = urllib.request.Request(url, headers={
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"})
-    return urllib.request.urlopen(req, timeout=30).read().decode("utf-8", "ignore")
+    last_err: Exception | None = None
+    for attempt in range(retries):
+        try:
+            html = urllib.request.urlopen(req, timeout=30).read().decode("utf-8", "ignore")
+            if expect and expect not in html:
+                raise RuntimeError(f"頁面內容缺少「{expect}」（被擋或改版），len={len(html)}")
+            return html
+        except Exception as e:
+            last_err = e
+            if attempt < retries - 1:
+                time.sleep(wait * (attempt + 1))
+    raise last_err  # type: ignore[misc]
 
 
 MOI_SH_URL = "https://pip.moi.gov.tw/v3/b/SCRB0501.aspx?mode=7"
@@ -150,7 +164,7 @@ def _moi_sh_row(label_scope: str, row_label: str) -> tuple[list[int], str]:
     """內政部社宅統計表：取某區域段(label_scope)內某列(row_label)的 6 個數字
     [完工, 興建中, 決標待開工, 達成小計, 規劃中, 總計]，含加總驗算。"""
     import re
-    html = _get_html(MOI_SH_URL)
+    html = _get_html(MOI_SH_URL, expect="合計")
     m_date = re.search(r"截至\s*(\d{4})年(\d{1,2})月(\d{1,2})日", html)
     as_of = (f"{m_date.group(1)}-{int(m_date.group(2)):02d}-{int(m_date.group(3)):02d}"
              if m_date else "?")
@@ -175,7 +189,7 @@ def fetch_moi_social_housing() -> tuple[float, str, str]:
     """
     import re
     vals, as_of = _moi_sh_row("合計", "小計")
-    text = re.sub(r"<[^>]+>", "", _get_html(MOI_SH_URL))
+    text = re.sub(r"<[^>]+>", "", _get_html(MOI_SH_URL, expect="有效契約"))
     m_pd = re.search(r"有效契約[^0-9]*([\d,]+)\s*戶", text)
     if not m_pd:
         raise RuntimeError("找不到包租代管有效契約數")
@@ -204,7 +218,7 @@ def fetch_moea_renewable_share() -> tuple[float, str, str]:
     """經濟部能源署發電概況頁：再生能源占比（靜態HTML句型解析）。"""
     import re
     url = "https://www.moeaea.gov.tw/ECW/populace/content/Content.aspx?menu_id=14437"
-    text = re.sub(r"<[^>]+>", "", _get_html(url))
+    text = re.sub(r"<[^>]+>", "", _get_html(url, expect="再生能源占比"))
     # 錨定「再生能源占比由…」句，避免抓到太陽光電/風力等內部占比句
     m = re.search(
         r"再生能源占比由民國\s*\d{2,3}\s*年為\s*[\d.]+\s*[%％]?[，,]?\s*至民國\s*(\d{2,3})\s*年增加為\s*([\d.]+)\s*[%％]",

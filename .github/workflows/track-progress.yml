@@ -22,11 +22,17 @@ jobs:
 
       # fetcher 定義在 scripts/track_target_progress.py 的 FETCHERS，新增後在此追加一行
       # 684 柯文哲已結案(failed)不再更新
-      - name: 抓取進度
-        run: |
-          python scripts/track_target_progress.py fetch moi_social_housing --target-id 31
-          python scripts/track_target_progress.py fetch taichung_social_housing --target-id 3297
-          python scripts/track_target_progress.py fetch moea_renewable_share --target-id 813
+      # 各來源獨立步驟＋continue-on-error：單一政府網站擋 CI IP 時不連累其他來源
+      # （fetcher 內建 3 次重試與內容驗證，失敗不會寫入錯誤數字）
+      - name: 抓取進度：內政部社宅
+        continue-on-error: true
+        run: python scripts/track_target_progress.py fetch moi_social_housing --target-id 31
+      - name: 抓取進度：台中社宅
+        continue-on-error: true
+        run: python scripts/track_target_progress.py fetch taichung_social_housing --target-id 3297
+      - name: 抓取進度：再生能源占比
+        continue-on-error: true
+        run: python scripts/track_target_progress.py fetch moea_renewable_share --target-id 813
 
       - name: WAL checkpoint
         run: |
