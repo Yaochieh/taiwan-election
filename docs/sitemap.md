@@ -1,5 +1,10 @@
 # 正至平台 — 網站地圖與架構說明
 
+> ⚠️ **本文件停在早期 Streamlit 階段（僅列 6 個 API endpoint、Streamlit 頁面），
+> 已大幅過時。** 現行架構、完整 schema 與資料管線請看 [`README.md`](../README.md)；
+> API 路由清單以 `api/main.py` 與 `api/routers/` 為準（目前 40+ 個端點）；
+> 前端頁面清單見前端 repo 的 README。本文件保留作歷史紀錄。
+
 ## 一、Streamlit 應用頁面
 
 | 頁面名稱 | 路徑 | 功能說明 |
