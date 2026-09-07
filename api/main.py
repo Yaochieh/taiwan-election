@@ -19,6 +19,13 @@ app = FastAPI(
     description="台灣選舉資訊平台 API — 選舉、候選人、政見、趨勢、地方首長歷屆結果",
     version="0.2.0",
     lifespan=lifespan,
+    # 不對外開放互動式 API 說明書（/docs、/redoc、/openapi.json）。
+    # 這個 API 是前端的資料來源，本身全唯讀、無認證、無寫入端點；
+    # 關掉說明書只是不主動展示端點清單，不是安全機制——
+    # 前端呼叫本來就看得到。日後要正式開放資料時把這三行拿掉即可。
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 app.add_middleware(
