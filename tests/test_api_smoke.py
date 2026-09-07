@@ -92,12 +92,20 @@ def test_candidate_platforms_filtered():
 
 
 def test_election_milestones():
-    """選舉時程里程碑：最近投票日 2026-11-28 應有 12 筆且含投票日"""
+    """選舉時程里程碑：最近投票日 2026-11-28，含關鍵里程碑且來源皆為中選會
+
+    不斷言精確筆數——里程碑會隨選務進度增補（例：2026-09 加入登記完成統計），
+    硬編數字只會製造假性失敗。改為檢查結構與必要項目。
+    """
     r = client.get("/elections/milestones")
     assert r.status_code == 200
     rows = r.json()
-    assert len(rows) == 12
-    assert rows[-1]["date"] == "2026-11-28"
+    assert len(rows) >= 12
+    assert rows[-1]["date"] == "2026-11-28"          # 最後一筆是投票日
+    assert rows == sorted(rows, key=lambda m: m["date"])  # 依日期遞增
+    labels = " ".join(m["label"] for m in rows)
+    for must in ("受理候選人登記", "審定候選人名單", "投票"):
+        assert must in labels
     assert all(m["source_url"].startswith("https://web.cec.gov.tw") for m in rows)
 
 
