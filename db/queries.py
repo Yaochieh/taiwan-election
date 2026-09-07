@@ -1784,6 +1784,9 @@ def get_quantification_stats() -> dict:
 
         return {
             "funnel": {
+                # platforms 是政見總筆數；不可用 parties 加總代替——
+                # parties 只回前 10 大政黨，加總會少算（883 → 746）
+                "platforms": len(rows),
                 "items": items_total,
                 "targets": total_targets,
                 "elected_targets": elected_targets,
