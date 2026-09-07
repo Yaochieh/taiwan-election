@@ -59,7 +59,7 @@ jobs:
             Co-Authored-By: github-actions <noreply@github.com>
           body: |
             每日自動抓取開放資料更新 `platform_target_progress`。
-            來源與數值見 diff；merge 後 Railway 自動部署。
+            來源與數值見 diff；merge 後 Render 自動部署。
 
             🤖 由 track-progress workflow 產生
           add-paths: data/db.sqlite

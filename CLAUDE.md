@@ -4,7 +4,7 @@
 前端在 `~/Desktop/Projects/taiwan-election-web`（Next.js + TypeScript）。
 線上：
 - 前端 https://taiwan-election-web.vercel.app
-- API  https://web-production-f7c522.up.railway.app
+- API  https://taiwan-election-api.onrender.com
 
 ## 開發環境
 
@@ -31,7 +31,7 @@ tests/                資料不變量 + API smoke（commit DB 前必跑）
 docs/                 roadmap_2026H2.md（規劃單一來源）/ data_model_v2 / sitemap
 .github/workflows/    ci.yml（稽核+測試）、track-progress.yml（每日抓進度開 PR）
 data/
-  db.sqlite           主資料庫（**commit in repo**, Railway 重 deploy 時更新）
+  db.sqlite           主資料庫（**commit in repo**, Render 重 deploy 時更新）
   votedata.zip        中選會原始 CSV（**不要 unzip**，腳本動態讀）
   bulletins/          選舉公報 PDF
   bulletin_pages*/    OCR 用渲染 PNG
@@ -228,17 +228,37 @@ fix_presidential_inflation.py    總統票數膨脹修正（冪等）
 /issues/fertility          少子化議題缺口分析
 ```
 
-## Railway 部署
+## 部署（Render）
 
-- `git push origin main` 自動觸發
-- DB 是檔案直接讀，**每次 deploy 用 commit 過的 db.sqlite**
-- 改 DB 的標準收尾：
-  ```
-  python scripts/audit_authenticity.py && python -m pytest tests/ -q
-  sqlite3 data/db.sqlite "PRAGMA wal_checkpoint(TRUNCATE);"
-  git add data/db.sqlite && git commit && git push
-  ```
-- `.github/workflows/track-progress.yml` 每日自動抓旗艦承諾進度並開 PR
+**2026-09-07 從 Railway 搬到 Render** —— Railway 免費試用期到期，所有 deployment
+被回收（錯誤訊息：`Your trial has expired`），且該帳號的 UI 只提供付費 Hobby、
+沒有降級 Free 的選項。
+
+- **平台**：Render 免費層，Blueprint `tw-politics`，服務 `taiwan-election-api`
+- **設定檔**：`render.yaml`（free plan / singapore 機房 / `/health` 健檢）
+- **自動部署**：push 到 main 就觸發（`autoDeployTrigger: commit`）
+- **DB 是檔案直接讀**，每次 deploy 用 commit 過的 db.sqlite
+- **依賴分兩份**：`requirements.txt` = 部署用最小集合（fastapi/uvicorn/
+  pydantic/pandas 四個）；`requirements-dev.txt` = 資料工程與 Streamlit 用。
+  **加新套件前先想清楚該進哪一份** —— 部署那份要撐在免費層 512MB 內
+  （目前實測 RSS 99MB）。
+
+改 DB 的標準收尾：
+```
+python scripts/audit_authenticity.py && python -m pytest tests/ -q
+sqlite3 data/db.sqlite "PRAGMA wal_checkpoint(TRUNCATE);"
+git add data/db.sqlite && git commit && git push
+```
+
+**免費層的代價**：閒置 15 分鐘休眠，冷啟動約 1 分鐘。
+`.github/workflows/keepalive.yml` 在台北 08:00–24:00 每 10 分鐘 ping 一次
+（約 480 小時/月，額度 750），白天訪客幾乎不會遇到冷啟動。
+
+**要升級時**：Railway 專案 `selfless-gentleness`、服務 `web`、原 domain
+`web-production-f7c522.up.railway.app`、GitHub 連結都還在，選 Hobby（$5/月，
+不休眠）就能切回去，前端改回原網址即可。$5 Railway 比 $7 Render Starter 划算。
+
+其他自動化：`.github/workflows/track-progress.yml` 每日抓旗艦承諾進度開 PR。
 
 ## 規劃文件
 

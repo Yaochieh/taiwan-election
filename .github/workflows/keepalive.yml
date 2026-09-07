@@ -1,0 +1,28 @@
+name: API 保活
+
+# Render 免費層閒置 15 分鐘就休眠，下一位訪客要等約 1 分鐘冷啟動。
+# 每 10 分鐘 ping 一次 /health 讓它保持清醒。
+#
+# 只在台灣白天時段跑（UTC 00:00-15:59 = 台北 08:00-23:59）：
+# 約 480 執行小時/月，遠低於 Render 免費層 750 小時的額度。
+# 深夜不保活 —— 訪客極少，且留額度餘裕。
+on:
+  schedule:
+    - cron: "*/10 0-15 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health
+        run: |
+          # 冷啟動最長約 60 秒，給 90 秒超時並重試 3 次
+          for i in 1 2 3; do
+            code=$(curl -s -m 90 -o /dev/null -w '%{http_code}' \
+              https://taiwan-election-api.onrender.com/health) && true
+            echo "attempt $i: HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "::warning::保活 ping 三次都沒拿到 200（最後一次 HTTP $code）"
