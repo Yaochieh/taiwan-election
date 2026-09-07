@@ -1,0 +1,15 @@
+# 本機資料工程 / Streamlit app 用（不進部署）
+# OCR 相關（paddleocr/paddlepaddle）另外手動安裝，不列入
+-r requirements.txt
+
+streamlit
+openpyxl==3.1.5
+requests==2.33.1
+httpx==0.28.1
+beautifulsoup4
+matplotlib
+plotly
+pdfplumber
+PyMuPDF
+anthropic==0.109.2
+pytest

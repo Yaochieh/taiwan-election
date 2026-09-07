@@ -1,0 +1,16 @@
+# Render Blueprint — 正至 API 後端
+# 取代已到期的 Railway trial（2026-09）。連結 repo 後 Render 會自動讀這個檔。
+services:
+  - type: web
+    name: taiwan-election-api
+    runtime: python
+    plan: free              # 免費層：512MB RAM，閒置 15 分鐘後休眠
+    region: singapore       # 離台灣最近
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
