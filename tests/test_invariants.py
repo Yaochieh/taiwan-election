@@ -141,3 +141,35 @@ def test_authenticity_audit_baseline():
     r = subprocess.run([sys.executable, str(ROOT / "scripts/audit_authenticity.py")],
                        capture_output=True, text=True)
     assert r.returncode == 0, f"稽核發現新問題:\n{r.stdout}"
+
+
+def test_progress_breakdown_sums_to_current_value():
+    """口徑拆解的各項總和必須等於該筆進度的 current_value。
+
+    拆解是為了把「完工／興建中／待開工／包租代管」攤開（2026-09 回饋 R1）。
+    若總和對不上，代表漏了項目或數字抄錯，畫出來的分段進度條會自相矛盾。
+    """
+    with sqlite3.connect(DB) as conn:
+        rows = conn.execute("""
+            SELECT b.progress_id, p.current_value, SUM(b.value) AS total
+            FROM platform_progress_breakdown b
+            JOIN platform_target_progress p ON p.progress_id = b.progress_id
+            GROUP BY b.progress_id
+        """).fetchall()
+    assert rows, "沒有任何拆解資料——若已移除請一併刪除本測試"
+    for pid, current, total in rows:
+        assert abs(current - total) < 0.5, (
+            f"progress {pid} 拆解總和 {total} != current_value {current}"
+        )
+
+
+def test_progress_breakdown_has_delivered_item():
+    """每筆拆解都要有至少一項標記為已交付，否則 delivered_value 會是 0 而非 None，
+    前端會顯示「其中完工 0」這種無意義的內容。"""
+    with sqlite3.connect(DB) as conn:
+        rows = conn.execute("""
+            SELECT progress_id, SUM(delivered) FROM platform_progress_breakdown
+            GROUP BY progress_id
+        """).fetchall()
+    for pid, n in rows:
+        assert n >= 1, f"progress {pid} 的拆解沒有任何 delivered=1 項目"

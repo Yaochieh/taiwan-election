@@ -1610,18 +1610,42 @@ def get_flagship_targets() -> list[dict]:
                 SELECT url, publisher, authority_level FROM platform_progress_sources
                 WHERE progress_id = ? ORDER BY authority_level, source_id
             """, (p["progress_id"],)).fetchall()
+            # 口徑拆解：官方統計常把「完工／興建中／待開工／包租代管」加總為單一
+            # 數字，直接顯示會讓寬鬆口徑看起來像達標（2026-09 使用者回饋 R1）。
+            # 有拆解的承諾一併回傳各項與「已交付」小計，由前端分層呈現。
+            bd = conn.execute("""
+                SELECT label, value, delivered, note FROM platform_progress_breakdown
+                WHERE progress_id = ? ORDER BY rank, breakdown_id
+            """, (p["progress_id"],)).fetchall()
             base = row["baseline_value"] if row["baseline_value"] is not None else 0
             tv = row["target_value"]
+
+            def _pct(v):
+                if tv is None or tv == base or v is None:
+                    return None
+                return round(max(0.0, (v - base) / (tv - base) * 100), 1)
+
+            delivered_value = (
+                sum(b["value"] for b in bd if b["delivered"]) if bd else None
+            )
+            # 已交付佔目標的比例，直接用 delivered/target，不扣 baseline：
+            # baseline 是「含包租代管的累計基準」，與「完工數」口徑不同，
+            # 相減會得到負值（曾算出 0.0%）。兩個百分比算法不同，前端必須註明。
+            delivered_of_target_pct = (
+                round(delivered_value / tv * 100, 1)
+                if delivered_value is not None and tv else None
+            )
             row.update(
                 latest_value=p["current_value"],
                 recorded_at=p["recorded_at"],
                 progress_note=p["note"],
                 progress_source_url=p["source_url"],
                 sources=[dict(s) for s in srcs],
-                progress_pct=(
-                    round(max(0.0, (p["current_value"] - base) / (tv - base) * 100), 1)
-                    if tv is not None and tv != base else None
-                ),
+                progress_pct=_pct(p["current_value"]),
+                breakdown=[dict(b) for b in bd],
+                # 只計實際交付（完工/已實現）的值與百分比；無拆解資料時為 None
+                delivered_value=delivered_value,
+                delivered_of_target_pct=delivered_of_target_pct,
             )
             out.append(row)
         out.sort(key=lambda x: -(x["progress_pct"] or 0))
