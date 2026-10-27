@@ -532,7 +532,8 @@ def get_person_profile(name: str) -> dict:
         for r in candidate_rows:
             if r["photo_path"] and not photo:
                 photo = r["photo_path"]
-            if r["background"] and not background:
+            # 2026 登記階段的「[登記中未經審定]」是狀態標記，不是簡介，不能蓋掉舊屆資料
+            if r["background"] and not background and not r["background"].startswith("[登記中"):
                 background = r["background"]
 
         # 維基百科補的資料（同姓名取最新）

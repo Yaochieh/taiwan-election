@@ -45,8 +45,11 @@ def main():
     ap.add_argument("--csv", required=True)
     ap.add_argument("--source-url", required=True,
                     help="名單來源（中選會資料庫/公告 URL），資料一定標來源")
+    ap.add_argument("--create-parties", action="store_true",
+                    help="名單上的政黨不在 parties 表時，照名單原文新建（只在來源是中選會官方名冊時使用）")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
+    source = f"中選會 115年地方公職人員選舉候選人登記名冊 {args.source_url}"
 
     rows = list(csv.DictReader(open(args.csv, encoding="utf-8-sig")))
     if not rows:
@@ -70,6 +73,14 @@ def main():
                              (r["party"].strip(),)).fetchone()
             if p:
                 party_id = p["party_id"]
+            elif args.create_parties:
+                # 照官方名冊原文建黨，不猜測與既有政黨是否為改名（合併需另行查證）
+                name = r["party"].strip()
+                print(f"  + 新政黨「{name}」（照官方名冊原文）")
+                if not args.dry_run:
+                    party_id = conn.execute(
+                        "INSERT INTO parties (name, abbreviation, color_hex) VALUES (?, ?, ?)",
+                        (name, name[:3], "#888888")).lastrowid
             else:
                 print(f"  ⚠ 政黨「{r['party']}」不在 parties 表，{r['name']} 先以無黨籍寫入，請人工確認")
         exist = conn.execute(
@@ -84,9 +95,10 @@ def main():
               f"{' ' + REG_MARK if bg else ''}")
         if not args.dry_run:
             conn.execute(
-                """INSERT INTO candidates (name, party_id, election_id, district, background)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (r["name"].strip(), party_id, eid, r["district"].strip(), bg))
+                """INSERT INTO candidates (name, party_id, election_id, district, background,
+                                          official_source)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (r["name"].strip(), party_id, eid, r["district"].strip(), bg, source))
 
     # official 階段：清登記標記 + 找出登記過但不在正式名單的（退選/未通過審定）
     if args.stage == "official" and not args.dry_run:
