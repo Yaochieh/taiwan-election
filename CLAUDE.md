@@ -55,7 +55,7 @@ platforms → platform_targets → platform_target_progress → topic_data_sourc
 ```
 - `platforms` 883 條（立委／縣市長／2024 總統），有 `content_raw`（原始 OCR，可驗證）
 - `platform_topic_links` + `platform_topics` — 14 主題標籤
-- `platform_targets` 1,692 筆 — 量化承諾。關鍵欄位：
+- `platform_targets` 1,579 筆 — 量化承諾。關鍵欄位：
   `extraction_method`（llm / regex，**兩管線隔離**）、`tense`（past 政績 / future 承諾）、
   `status`（in_progress / achieved / failed）、`is_flagship`、`baseline_value` / `target_date`
 - `platform_target_progress` 23 筆 + `platform_progress_sources` 34 筆 — 旗艦承諾的實際進度與來源
@@ -152,6 +152,13 @@ platforms → platform_targets → platform_target_progress → topic_data_sourc
 12. **旗艦承諾的任期歸屬要稽核** — 承諾兌現不等於該首長的功勞。落選政見
     不列追蹤；由中央政策實現的要在 `note`／`verification` 揭露；有查核爭議的
     標 `disputed` 並連查核來源（例：柯文哲公宅 42.2% 依事實查核中心判定未達）。
+
+13. **量化承諾的描述也會藏腦補** — 2026-10-27 發現 2026-06 腦補事故的殘留：
+    政見已刪除重做，但從舊捏造版抽出的 `platform_targets` 沒跟著刪（例：侯友宜
+    「8 年蓋 25 萬戶社宅」、旗艦「國防 GDP 2.5%」「再生能源 60–70%」）。已用 2024
+    總統／不分區公報**全文 OCR** 判定刪除 113 筆（含 2 條旗艦）。
+    - `content_raw` 早期有 8,000 字截斷，判定「原文沒有」前要回公報全文確認
+    - 稽核新增 (f)：承諾描述對不上來源原文 → 新增即擋；baseline 內 70 筆待人工複核
 
 ## 關鍵 SQL 查詢 pattern
 

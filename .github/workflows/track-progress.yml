@@ -30,9 +30,6 @@ jobs:
       - name: 抓取進度：台中社宅
         continue-on-error: true
         run: python scripts/track_target_progress.py fetch taichung_social_housing --target-id 3297
-      - name: 抓取進度：再生能源占比
-        continue-on-error: true
-        run: python scripts/track_target_progress.py fetch moea_renewable_share --target-id 813
 
       - name: WAL checkpoint
         run: |

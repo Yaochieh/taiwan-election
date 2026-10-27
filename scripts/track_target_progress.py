@@ -64,7 +64,10 @@ def classify_source(url: str) -> tuple[str, str, int]:
 
 
 def record(conn, target_id: int, value: float, source_urls: list[str],
-           note: str | None, dry: bool):
+           note: str | None, dry: bool,
+           breakdown: list[tuple[str, float, int]] | None = None):
+    """breakdown：[(label, value, delivered)]，官方合計的逐項組成（回饋 R1）。
+    有拆解的承諾每筆新進度都要附上，否則前端的「已交付／未交付」分段條會消失。"""
     t = conn.execute(
         "SELECT person_name, title, target_value, metric_unit FROM platform_targets WHERE target_id=?",
         (target_id,),
@@ -105,12 +108,23 @@ def record(conn, target_id: int, value: float, source_urls: list[str],
                VALUES (?, ?, ?, ?, ?, datetime('now'))""",
             (progress_id, u, stype, pub, lv),
         )
+    if breakdown:
+        total = sum(v for _, v, _ in breakdown)
+        if abs(total - value) >= 0.5:
+            conn.rollback()
+            sys.exit(f"✗ 拆解總和 {total} != 進度值 {value}，未寫入")
+        for rank, (label, v, delivered) in enumerate(breakdown, 1):
+            conn.execute(
+                """INSERT INTO platform_progress_breakdown
+                   (progress_id, label, value, delivered, rank) VALUES (?, ?, ?, ?, ?)""",
+                (progress_id, label, v, delivered, rank))
     conn.commit()
-    print(f"  ✓ 已寫入 progress + {len(source_urls)} 個來源")
+    print(f"  ✓ 已寫入 progress + {len(source_urls)} 個來源"
+          + (f" + {len(breakdown)} 項拆解" if breakdown else ""))
 
 
 # ── 自動 fetcher（可插拔）───────────────────────────────────────────────────
-# 每個 fetcher 回傳 (value, source_url, note)
+# 每個 fetcher 回傳 (value, source_url, note) 或 (value, source_url, note, breakdown)
 
 def fetch_taipei_social_housing() -> tuple[float, str, str]:
     """北市社宅戰情中心 BigData API：加總已完工戶數。"""
@@ -182,23 +196,19 @@ def _moi_sh_row(label_scope: str, row_label: str) -> tuple[list[int], str]:
     return vals, as_of
 
 
-def fetch_moi_social_housing() -> tuple[float, str, str]:
-    """全國社宅：直建達成(完工+興建中+決標待開工，全國小計) + 包租代管有效契約。
+def fetch_moi_social_housing():
+    """全國社宅：直接興建達成（完工+興建中+決標待開工，全國小計）。
 
-    口徑與 target 31（賴清德 25 萬戶 = 直建13萬+包代12萬）一致。
+    target 31 賴清德公報原文：「至2032年累計達成興辦25萬戶社會住宅、25萬戶包租代管、
+    50萬戶租金補貼」—— 社宅與包租代管是兩個分開的目標，包租代管不可計入
+    （2026-10-27 修正；此前誤把包租代管有效契約加進來，進度從 14% 灌成 86%）。
     """
-    import re
     vals, as_of = _moi_sh_row("合計", "小計")
-    text = re.sub(r"<[^>]+>", "", _get_html(MOI_SH_URL, expect="有效契約"))
-    m_pd = re.search(r"有效契約[^0-9]*([\d,]+)\s*戶", text)
-    if not m_pd:
-        raise RuntimeError("找不到包租代管有效契約數")
-    baodai = int(m_pd.group(1).replace(",", ""))
-    total = vals[3] + baodai
-    note = (f"內政部社宅專區統計（截至{as_of}）：直接興建達成{vals[3]:,}戶"
-            f"（完工{vals[0]:,}+興建中{vals[1]:,}+決標待開工{vals[2]:,}）"
-            f"+包租代管有效契約{baodai:,}戶＝{total:,}戶。口徑同前（達成+有效契約）")
-    return float(total), MOI_SH_URL, note
+    note = (f"內政部社宅專區統計（截至{as_of}）直接興建達成{vals[3]:,}戶"
+            f"（完工{vals[0]:,}+興建中{vals[1]:,}+決標待開工{vals[2]:,}）。"
+            f"包租代管為公報另列之 25 萬戶目標，不計入。")
+    breakdown = [("完工", vals[0], 1), ("興建中", vals[1], 0), ("決標待開工", vals[2], 0)]
+    return float(vals[3]), MOI_SH_URL, note, breakdown
 
 
 def fetch_taichung_social_housing() -> tuple[float, str, str]:
@@ -211,7 +221,11 @@ def fetch_taichung_social_housing() -> tuple[float, str, str]:
     note = (f"內政部社宅專區統計（截至{as_of}）臺中市地方興辦：總計{vals[5]:,}戶"
             f"（完工{vals[0]:,}+興建中{vals[1]:,}+決標待開工{vals[2]:,}+規劃中{vals[4]:,}）。"
             f"口徑為其政見「建置」之累計數，含前任期興辦")
-    return float(vals[5]), MOI_SH_URL, note
+    breakdown = [("完工", vals[0], 1), ("興建中", vals[1], 0)]
+    if vals[2]:
+        breakdown.append(("決標待開工", vals[2], 0))
+    breakdown.append(("規劃中", vals[4], 0))
+    return float(vals[5]), MOI_SH_URL, note, breakdown
 
 
 def fetch_moea_renewable_share() -> tuple[float, str, str]:
@@ -234,7 +248,8 @@ FETCHERS = {
     "taipei_social_housing": fetch_taipei_social_housing,
     "moi_social_housing": fetch_moi_social_housing,           # target 31 賴清德社宅
     "taichung_social_housing": fetch_taichung_social_housing, # target 3297 盧秀燕
-    "moea_renewable_share": fetch_moea_renewable_share,       # target 813 再生能源
+    # target 813「再生能源 60–70%」於 2026-10-27 刪除：公報全文無此承諾（腦補殘留）
+    "moea_renewable_share": fetch_moea_renewable_share,
 }
 
 
@@ -282,8 +297,9 @@ def main():
     elif args.cmd == "record":
         record(conn, args.target_id, args.current_value, args.source_url, args.note, args.dry_run)  # list
     elif args.cmd == "fetch":
-        value, url, note = FETCHERS[args.fetcher]()
-        record(conn, args.target_id, value, [url], note, args.dry_run)
+        value, url, note, *rest = FETCHERS[args.fetcher]()
+        record(conn, args.target_id, value, [url], note, args.dry_run,
+               breakdown=rest[0] if rest else None)
     conn.close()
 
 

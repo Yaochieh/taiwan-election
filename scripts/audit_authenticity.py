@@ -6,6 +6,8 @@
 (c) content_raw NULL 的政見數（來源缺口）
 (d) 有 background 但無 background_source 的候選人數（履歷來源缺口）
 (e) status='completed' 但 0 筆結果的選舉
+(f) 量化承諾描述對不上來源政見原文（4-gram 重疊 < 20%）—— 2026-10 發現
+    腦補事故的殘留藏在 platform_targets.description，(b) 只查政見本身抓不到
 
 已知遺留記錄在 scripts/audit_baseline.json；只有「超出 baseline」才算新問題。
 更新 baseline：python scripts/audit_authenticity.py --update-baseline
@@ -84,6 +86,21 @@ def run_checks(conn, verbose=False):
         "AND NOT EXISTS (SELECT 1 FROM election_results er WHERE er.election_id=e.election_id) "
         "AND NOT EXISTS (SELECT 1 FROM recall_results rr WHERE rr.election_id=e.election_id) "
         "ORDER BY e.election_id").fetchall()]
+
+    # (f) 量化承諾描述 vs 來源政見原文
+    #     LLM 抽取的短標籤（如「年齡門檻」）也會低重疊，已列入 baseline；
+    #     新增的才算問題。旗艦承諾一律要對得上（旗艦會上首頁）。
+    off_t = []
+    for r in conn.execute(
+            "SELECT t.target_id, t.description, t.flagship, p.content_raw, p.content "
+            "FROM platform_targets t JOIN platforms p ON p.platform_id = t.source_platform_id "
+            "WHERE length(COALESCE(t.description,'')) >= 8").fetchall():
+        ratio = overlap_ratio(r["description"], (r["content_raw"] or "") + (r["content"] or ""))
+        if ratio < 0.20:
+            off_t.append(r["target_id"])
+            if verbose:
+                print(f"  [f] target {r['target_id']}{'（旗艦）' if r['flagship'] else ''} 重疊 {ratio:.0%}")
+    findings["f_target_desc_off_raw"] = sorted(off_t)
 
     return findings
 
