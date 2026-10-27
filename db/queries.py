@@ -1644,6 +1644,15 @@ def get_flagship_targets() -> list[dict]:
                 sources=[dict(s) for s in srcs],
                 progress_pct=_pct(p["current_value"]),
                 breakdown=[dict(b) for b in bd],
+                # 官方數字口徑的異議來源（2026-09 回饋 R2）：人工審過、引句照抄原文。
+                # 不算正反比例、不下判決，只並列給讀者看。
+                disputes=[dict(x) for x in conn.execute("""
+                    SELECT source_type, publisher, title, url, quote, published_at
+                    FROM platform_target_disputes
+                    WHERE target_id = ?
+                    ORDER BY CASE source_type WHEN 'oversight' THEN 0 WHEN 'factcheck' THEN 1
+                                              WHEN 'ngo' THEN 2 ELSE 3 END, dispute_id
+                """, (r["target_id"],)).fetchall()],
                 # 只計實際交付（完工/已實現）的值與百分比；無拆解資料時為 None
                 delivered_value=delivered_value,
                 delivered_of_target_pct=delivered_of_target_pct,

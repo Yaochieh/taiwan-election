@@ -173,3 +173,23 @@ def test_progress_breakdown_has_delivered_item():
         """).fetchall()
     for pid, n in rows:
         assert n >= 1, f"progress {pid} 的拆解沒有任何 delivered=1 項目"
+
+
+def test_target_disputes_well_formed():
+    """口徑爭議標註（回饋 R2）：只能掛在旗艦承諾上，每筆都要有來源網址與原文引句。
+
+    引句是讀者判斷爭議的唯一依據，沒有引句等於只貼一個連結叫人自己去找；
+    掛到非旗艦承諾則代表範圍失控（R2 決定只做旗艦）。
+    """
+    with sqlite3.connect(DB) as conn:
+        rows = conn.execute("""
+            SELECT d.dispute_id, d.url, d.quote, d.source_type, d.quote_verified, t.flagship
+            FROM platform_target_disputes d
+            LEFT JOIN platform_targets t ON t.target_id = d.target_id
+        """).fetchall()
+    for did, url, quote, stype, verified, flagship in rows:
+        assert flagship == 1, f"dispute {did} 掛在非旗艦承諾上"
+        assert url and url.startswith("http"), f"dispute {did} 沒有有效 url"
+        assert quote and len(quote.strip()) >= 10, f"dispute {did} 引句太短或空白"
+        assert stype in {"oversight", "factcheck", "ngo", "media"}, f"dispute {did} source_type={stype}"
+        assert verified in {"auto", "manual"}, f"dispute {did} 引句未經核對"
