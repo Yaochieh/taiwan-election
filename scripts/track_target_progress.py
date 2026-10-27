@@ -34,7 +34,37 @@ def ensure_flagship_column(conn):
     cols = [r[1] for r in conn.execute("PRAGMA table_info(platform_targets)")]
     if "flagship" not in cols:
         conn.execute("ALTER TABLE platform_targets ADD COLUMN flagship INTEGER DEFAULT 0")
-        conn.commit()
+    # 政見公布時的實際數值（2026-10-27 使用者回饋）：承諾提出當下已達到多少。
+    # 與 baseline（就任時、算任內進度用）分開——例如租金補貼 50 萬戶，
+    # 政見公布時（2023-12）已核定 39.6 萬戶，是延續既有計畫的低標承諾。
+    for col, typ in (("announce_value", "REAL"), ("announce_date", "DATE"),
+                     ("announce_source_url", "TEXT"), ("announce_note", "TEXT")):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE platform_targets ADD COLUMN {col} {typ}")
+    conn.commit()
+
+
+def record_announce(conn, target_id: int, value: float, as_of: str, source_url: str,
+                    note: str | None, dry: bool):
+    """記錄政見公布時的官方數值。as_of 是統計時點（盡量取公報發布前後最近一期）。"""
+    t = conn.execute(
+        "SELECT person_name, title, target_value, metric_unit FROM platform_targets WHERE target_id=?",
+        (target_id,)).fetchone()
+    if not t:
+        sys.exit(f"✗ target_id {target_id} 不存在")
+    if not source_url:
+        sys.exit("✗ 必須提供 --source-url（資料一定標來源）")
+    share = f"{value / t['target_value'] * 100:.1f}%" if t["target_value"] else "?"
+    print(f"  {t['person_name']}｜{t['title']}")
+    print(f"  政見公布時（{as_of}）{value} {t['metric_unit'] or ''}，已是目標的 {share}")
+    if dry:
+        print("  [dry-run] 未寫入")
+        return
+    conn.execute(
+        "UPDATE platform_targets SET announce_value=?, announce_date=?, announce_source_url=?, "
+        "announce_note=? WHERE target_id=?", (value, as_of, source_url, note, target_id))
+    conn.commit()
+    print("  ✓ 已寫入")
 
 
 # 來源網域 → (publisher, source_type, authority_level 1官方/2監督/3媒體/4其他)
@@ -287,6 +317,13 @@ def main():
     p_fetch.add_argument("fetcher", choices=sorted(FETCHERS))
     p_fetch.add_argument("--target-id", type=int, required=True)
     p_fetch.add_argument("--dry-run", action="store_true")
+    p_ann = sub.add_parser("announce", help="記錄政見公布時的官方數值")
+    p_ann.add_argument("target_id", type=int)
+    p_ann.add_argument("value", type=float)
+    p_ann.add_argument("--as-of", required=True, help="統計時點 YYYY-MM-DD")
+    p_ann.add_argument("--source-url", required=True)
+    p_ann.add_argument("--note")
+    p_ann.add_argument("--dry-run", action="store_true")
     sub.add_parser("list", help="列出旗艦承諾與最新進度")
     args = ap.parse_args()
 
@@ -296,6 +333,9 @@ def main():
         cmd_list(conn)
     elif args.cmd == "record":
         record(conn, args.target_id, args.current_value, args.source_url, args.note, args.dry_run)  # list
+    elif args.cmd == "announce":
+        record_announce(conn, args.target_id, args.value, args.as_of, args.source_url,
+                        args.note, args.dry_run)
     elif args.cmd == "fetch":
         value, url, note, *rest = FETCHERS[args.fetcher]()
         record(conn, args.target_id, value, [url], note, args.dry_run,

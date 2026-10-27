@@ -193,3 +193,16 @@ def test_target_disputes_well_formed():
         assert quote and len(quote.strip()) >= 10, f"dispute {did} 引句太短或空白"
         assert stype in {"oversight", "factcheck", "ngo", "media"}, f"dispute {did} source_type={stype}"
         assert verified in {"auto", "manual"}, f"dispute {did} 引句未經核對"
+
+
+def test_announce_value_has_source():
+    """政見公布時數值（2026-10 回饋）：有數值就必須有統計時點與來源網址。"""
+    with sqlite3.connect(DB) as conn:
+        rows = conn.execute("""
+            SELECT target_id, announce_date, announce_source_url FROM platform_targets
+            WHERE announce_value IS NOT NULL
+        """).fetchall()
+    assert rows, "沒有任何政見公布時數值——若已移除欄位請一併刪除本測試"
+    for tid, d, url in rows:
+        assert d, f"target {tid} 有公布時數值但沒有統計時點"
+        assert url and url.startswith("http"), f"target {tid} 有公布時數值但沒有來源"

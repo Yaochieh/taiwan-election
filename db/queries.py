@@ -1589,6 +1589,7 @@ def get_flagship_targets() -> list[dict]:
             SELECT t.target_id, t.person_name, t.title, t.category,
                    t.target_value, t.metric_unit, t.baseline_value, t.target_date,
                    t.status, t.verification_status, t.verification_source, t.verification_note,
+                   t.announce_value, t.announce_date, t.announce_source_url, t.announce_note,
                    pa.name AS party_name, pa.color_hex
             FROM platform_targets t
             LEFT JOIN candidates c
@@ -1656,6 +1657,11 @@ def get_flagship_targets() -> list[dict]:
                 # 只計實際交付（完工/已實現）的值與百分比；無拆解資料時為 None
                 delivered_value=delivered_value,
                 delivered_of_target_pct=delivered_of_target_pct,
+                # 政見公布時已達目標的比例（2026-10 回饋）：高代表低標承諾
+                announce_of_target_pct=(
+                    round(row["announce_value"] / tv * 100, 1)
+                    if row["announce_value"] is not None and tv else None
+                ),
             )
             out.append(row)
         out.sort(key=lambda x: -(x["progress_pct"] or 0))
