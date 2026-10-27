@@ -1,0 +1,52 @@
+name: 2026 選舉公報上架偵測
+
+# 每天檢查中選會公報站，直轄市長／縣市長出現 115年 目錄就開 issue 通知
+# （GitHub 會寄信給 repo owner）。已有同標籤 open issue 就不重開。
+# 公報上架後：照 scripts/README.md 跑下載 + OCR 管線，然後關掉 issue，
+# 並把這個 workflow 停用或刪除。
+on:
+  schedule:
+    - cron: "0 1,9 * * *" # UTC 01:00 / 09:00 = 台北 09:00 / 17:00
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 檢查公報目錄
+        id: check
+        run: |
+          found=""
+          for dir in "01選舉公報/03直轄市長" "01選舉公報/04縣市長"; do
+            enc=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$dir")
+            html=$(curl -s -m 30 --retry 3 "https://bulletin.cec.gov.tw/?dir=${enc}" || true)
+            if [ -z "$html" ]; then
+              echo "::warning::${dir} 抓取失敗（可能擋 CI IP），本次略過"
+              continue
+            fi
+            if echo "$html" | grep -q "115年"; then
+              found="${found}- ${dir}/115年: https://bulletin.cec.gov.tw/?dir=${enc}%2F115%E5%B9%B4\n"
+            fi
+          done
+          echo "found<<EOF" >> "$GITHUB_OUTPUT"
+          printf "%b" "$found" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: 開 issue 通知
+        if: steps.check.outputs.found != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          FOUND: ${{ steps.check.outputs.found }}
+        run: |
+          gh label create bulletin-2026 --color FBCA04 --description "2026 選舉公報上架" 2>/dev/null || true
+          if [ -n "$(gh issue list --label bulletin-2026 --state open --json number --jq '.[].number')" ]; then
+            echo "已有 open issue，不重複開"
+            exit 0
+          fi
+          gh issue create --label bulletin-2026 \
+            --title "2026 縣市長選舉公報已上架" \
+            --body "$(printf '中選會公報站偵測到 115 年目錄：\n\n%s\n\n下一步（見 scripts/README.md）：\n1. 下載公報 PDF\n2. `ocr_llm_segment_mayoral.py 77 115`、`78 115`\n3. 稽核 + pytest 後 commit DB\n4. 關閉此 issue，停用 bulletin-watch.yml\n' "$FOUND")"
