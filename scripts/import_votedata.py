@@ -177,10 +177,15 @@ def upsert_election(conn: sqlite3.Connection, name: str, etype: str, date: str,
 
 def upsert_candidate(conn: sqlite3.Connection, name: str, election_id: int,
                      party_id: int | None, background: str | None = None) -> int:
-    row = conn.execute(
+    rows = conn.execute(
         "SELECT candidate_id FROM candidates WHERE name = ? AND election_id = ?",
         (name, election_id)
-    ).fetchone()
+    ).fetchall()
+    if len(rows) > 1:
+        # 2026 起唯一鍵為 (name, election_id, district)：同場同名不同選區的人（例：e79 陳怡君×2）
+        # 不能只靠姓名對應，必須改用選區比對，寧可中止也不要把票數掛錯人
+        raise ValueError(f"{name}（e{election_id}）同名 {len(rows)} 人，需以選區比對，請人工處理")
+    row = rows[0] if rows else None
     if row:
         if party_id is not None:
             conn.execute("UPDATE candidates SET party_id = ? WHERE candidate_id = ?",

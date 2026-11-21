@@ -109,8 +109,11 @@ def main():
                 "WHERE election_id IN (77,78,79,80,81,82) AND background=?", (REG_MARK,))
             if (row["election_id"], row["name"]) not in official_names
         ]
-        conn.execute("UPDATE candidates SET background=NULL "
-                     "WHERE election_id IN (77,78,79,80,81,82) AND background=?", (REG_MARK,))
+        # 只清「在正式名單內」者的標記；退選／未通過審定者保留標記待人工處理
+        # （舊版無條件清除，會讓退選者看起來像正式候選人）
+        for eid, name in official_names:
+            conn.execute("UPDATE candidates SET background=NULL "
+                         "WHERE election_id=? AND name=? AND background=?", (eid, name, REG_MARK))
         for name, eid in dropped:
             print(f"  ✗ {name}（e{eid}）登記過但不在正式名單（退選/未通過審定），請人工處理")
 

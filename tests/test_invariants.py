@@ -206,3 +206,47 @@ def test_announce_value_has_source():
     for tid, d, url in rows:
         assert d, f"target {tid} 有公布時數值但沒有統計時點"
         assert url and url.startswith("http"), f"target {tid} 有公布時數值但沒有來源"
+
+
+# ── 2026 選舉公報候選人資料（extract_2026_bulletin_candidates.py）──────────────
+
+def _has_table(conn, name):
+    return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+                        (name,)).fetchone() is not None
+
+
+def test_bulletin_profiles_have_source(conn):
+    """每筆公報資料都要有來源 PDF 與 URL（資料真實性鐵律 2）。"""
+    if not _has_table(conn, "candidate_bulletin_profiles"):
+        pytest.skip("尚未匯入")
+    bad = conn.execute(
+        "SELECT candidate_id FROM candidate_bulletin_profiles "
+        "WHERE source_url IS NULL OR source_url NOT LIKE 'https://bulletin.cec.gov.tw/%' "
+        "   OR source_pdf IS NULL").fetchall()
+    assert not bad, f"公報資料缺來源：{[r[0] for r in bad][:10]}"
+
+
+def test_bulletin_ballot_no_unique_per_district(conn):
+    """同一場、同一選區不可有重複號次（重複 = 抽取把人對錯欄）。"""
+    if not _has_table(conn, "candidate_bulletin_profiles"):
+        pytest.skip("尚未匯入")
+    dup = conn.execute(
+        "SELECT c.election_id, c.district, bp.ballot_no, COUNT(*) FROM candidate_bulletin_profiles bp "
+        "JOIN candidates c USING(candidate_id) WHERE bp.ballot_no IS NOT NULL "
+        "GROUP BY 1,2,3 HAVING COUNT(*) > 1").fetchall()
+    assert not dup, f"號次重複：{[tuple(r) for r in dup][:10]}"
+
+
+def test_2026_photo_files_exist(conn):
+    """2026 候選人的 photo_path 必須指向存在的檔案。"""
+    rows = conn.execute("SELECT candidate_id, photo_path FROM candidates "
+                        "WHERE election_id BETWEEN 77 AND 82 AND photo_path IS NOT NULL").fetchall()
+    missing = [r[0] for r in rows if not (ROOT / r[1]).exists()]
+    assert not missing, f"照片檔不存在：{missing[:10]}"
+
+
+def test_2026_platforms_have_bulletin_source(conn):
+    """2026 政見必須是公報原文且附公報 URL。"""
+    bad = conn.execute("SELECT platform_id FROM platforms WHERE election_id BETWEEN 77 AND 82 "
+                       "AND (source_url IS NULL OR content_raw IS NULL)").fetchall()
+    assert not bad, f"2026 政見缺來源：{[r[0] for r in bad][:10]}"

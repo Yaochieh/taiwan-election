@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import pandas as pd
 from pathlib import Path
@@ -145,16 +146,18 @@ def get_candidates_by_election(election_id: int) -> pd.DataFrame:
         return pd.read_sql_query(
             f"""
             SELECT c.candidate_id, c.name, c.district, c.background, c.platform,
+                   c.photo_path, bp.ballot_no,
                    p.name AS party_name, p.abbreviation, p.color_hex,
                    {SQL_VOTES_DEDUP.format(t="r")} AS votes,
                    MAX(r.elected) AS elected
             FROM candidates c
             LEFT JOIN parties p ON c.party_id = p.party_id
+            LEFT JOIN candidate_bulletin_profiles bp ON bp.candidate_id = c.candidate_id
             LEFT JOIN election_results r ON r.candidate_id = c.candidate_id
                                         AND r.election_id = c.election_id
             WHERE c.election_id = ?
             GROUP BY c.candidate_id
-            ORDER BY votes DESC NULLS LAST, c.candidate_id
+            ORDER BY votes DESC NULLS LAST, c.district, bp.ballot_no, c.candidate_id
             """,
             conn, params=(election_id,)
         )
@@ -175,7 +178,25 @@ def get_candidate_by_id(candidate_id: int) -> dict | None:
             """,
             (candidate_id,)
         ).fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        d = dict(row)
+        d["bulletin"] = get_bulletin_profile(conn, candidate_id)
+        return d
+
+
+def get_bulletin_profile(conn, candidate_id: int) -> dict | None:
+    """選舉公報刊登的候選人資料（2026 起）。學經歷為公報逐行原文。"""
+    r = conn.execute(
+        "SELECT ballot_no, gender, birth_date_raw, birthplace, party_raw, education, career, "
+        "       source_url, source_page FROM candidate_bulletin_profiles WHERE candidate_id=?",
+        (candidate_id,)).fetchone()
+    if not r:
+        return None
+    d = dict(r)
+    d["education"] = json.loads(d["education"] or "[]")
+    d["career"] = json.loads(d["career"] or "[]")
+    return d
 
 
 # ── Election results ───────────────────────────────────────────────────────────
@@ -577,6 +598,8 @@ def get_person_profile(name: str) -> dict:
                 "platform_count": r["platform_count"],
                 "image_count": r["image_count"],
                 "background": r["background"],
+                "photo_path": r["photo_path"],
+                "bulletin": get_bulletin_profile(conn, r["candidate_id"]),
             }
             # presidential：列出該候選人「在哪些縣市得票最高（勝選）」
             if r["election_type"] == "presidential":

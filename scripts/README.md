@@ -31,6 +31,7 @@
 | `ocr_highdpi_county.py` / `ocr_highdpi_mayoral_batch.py` / `ocr_partylist_fulldpi.py` | 300 DPI 救援（版面太密 200 DPI 抽不到）|
 | `ocr_bulletin_pages.py` | 縣市長公報整頁 OCR |
 | `extract_bulletin_images.py` / `extract_candidate_photos.py` | 圖片政見 / 大頭照抽取 |
+| `extract_2026_bulletin_candidates.py ocr\|extract\|verify\|import` | ★ 2026 公報 → 候選人號次／照片／學經歷／政見原文。姓名・選區・政黨以中選會登記名冊為準；其餘欄位須同時通過 PDF 文字層與 Vision 影像 OCR（`scripts/tools/vision_ocr.swift`，用 `swiftc -O` 編譯）雙通道比對 |
 | `parse_bulletin.py` / `parse_bulletin_v2.py` / `import_platforms.py` / `import_legislative_platforms.py` | 早期 parser（部分仍被 import）|
 
 ### 3. LLM 加工（都有防腦補措施）

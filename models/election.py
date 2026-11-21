@@ -67,11 +67,28 @@ class Candidate(BaseModel):
     district: str | None = None
     votes: float | None = None
     elected: int | None = None
+    photo_path: str | None = None
+    ballot_no: int | None = None
+    background: str | None = None
+
+
+class BulletinProfile(BaseModel):
+    """選舉公報刊登的候選人資料（原文照抄，來源見 source_url）"""
+    ballot_no: int | None = None
+    gender: str | None = None
+    birth_date_raw: str | None = None
+    birthplace: str | None = None
+    party_raw: str | None = None
+    education: list[str] = []
+    career: list[str] = []
+    source_url: str
+    source_page: int | None = None
 
 
 class CandidateDetail(Candidate):
     background: str | None = None
     platform: str | None = None
+    bulletin: BulletinProfile | None = None
 
 
 class CandidateSearchResult(BaseModel):

@@ -160,6 +160,12 @@ platforms → platform_targets → platform_target_progress → topic_data_sourc
     - `content_raw` 早期有 8,000 字截斷，判定「原文沒有」前要回公報全文確認
     - 稽核新增 (f)：承諾描述對不上來源原文 → 新增即擋；baseline 內 70 筆待人工複核
 
+14. **★ 公報 PDF 文字層不可當逐字真值** — 字型 ToUnicode 對照錯置會悄悄換字
+    （2026 臺東縣長公報印「吳秀華」，文字層是「吳夯華」），部分選委會 PDF 整頁亂碼。
+    抽取公報一律雙通道：文字層 ＋ 影像 OCR（`scripts/tools/vision_ocr.swift`）都要對得上；
+    姓名／選區／政黨以中選會登記名冊為準。`candidates` 唯一鍵是 (name, election_id, district)，
+    同場同名不同人（2026 議員 6 組）不能只靠姓名對應。
+
 ## 關鍵 SQL 查詢 pattern
 
 ```sql
