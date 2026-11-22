@@ -751,7 +751,21 @@ LOCAL_ELECTIONS = {
                "desc": "村（里）長；名單取自中選會候選人登記名冊（115-08-31～09-04 登記）"},
 }
 REG_MARK = "[登記中未經審定]"
-_DIST = re.compile(r"^(.{2}[市縣])(.+?[區鄉鎮市])(.+)$")
+# 先找「區」（直轄市與省轄市；避免「平鎮區」在「鎮」被切開），沒有才找鄉鎮市
+_DIST_RE = (re.compile(r"^(.{2}[市縣])(.+?區)(.+[村里])$"), re.compile(r"^(.{2}[市縣])(.+?[鄉鎮市])(.+[村里])$"))
+
+
+class _Dist:
+    @staticmethod
+    def match(s):
+        for r in _DIST_RE:
+            m = r.match(s)
+            if m:
+                return m
+        return None
+
+
+_DIST = _Dist()
 
 
 # Vision 常把異體字讀成另一寫法（實測：德→徳、黃→黄、橫→横、啓→啟、煥→焕）。
@@ -774,17 +788,29 @@ def _vhit(s: str, page_key_text: str) -> bool:
 
 
 def roster_rows_by_page(typ: str):
-    """與 load_roster 同一解析法，但保留頁碼（核對影像 OCR 要用）。"""
+    """與 load_roster 同一解析法，但保留頁碼與儲存格座標（核對影像 OCR 要用）。"""
     pdf = ROSTER_DIR / f"{ROSTER_FILES[typ]}.pdf"
     out = []
     for i, page in enumerate(fitz.open(pdf)):
         for t in page.find_tables().tables:
-            for r in t.extract():
+            for r, row in zip(t.extract(), t.rows):
                 if r[0] == "選舉區" or not r[2]:
                     continue
                 c = [(x or "").replace("\n", "") for x in r] + [""] * 5
-                out.append({"district": c[0], "name": c[2], "party": c[3], "note": c[4], "page": i})
+                out.append({"district": c[0], "name": c[2], "party": c[3], "note": c[4], "page": i,
+                            "cell_district": row.cells[0], "cell_name": row.cells[2]})
     return pdf, out
+
+
+def _vision_in_cell(items, cell) -> str:
+    """儲存格內的影像 OCR 文字（依 y 排序；切塊重疊造成的重複行去掉）。"""
+    x0, y0, x1, y1 = cell
+    got, seen = [], set()
+    for it in sorted(items, key=lambda d: (d["box"][1], d["box"][0])):
+        cx, cy = (it["box"][0] + it["box"][2]) / 2, (it["box"][1] + it["box"][3]) / 2
+        if x0 - 2 <= cx <= x1 + 2 and y0 - 2 <= cy <= y1 + 2 and it["t"] not in seen:
+            seen.add(it["t"]); got.append(it["t"])
+    return _vkey("".join(got))
 
 
 def cmd_roster_import(args):
@@ -799,13 +825,14 @@ def cmd_roster_import(args):
         sys.exit(f"✗ 逐頁解析 {len(rows)} 筆與名冊快取不一致")
     pages = sorted({r["page"] for r in rows})
     vision_ocr_pages([(pdf, i) for i in pages])
-    vt = {i: _vkey(vision_text(pdf, i)) for i in pages}
+    vitems = {i: json.loads((VISION_DIR / f"{page_key(pdf, i)}.json").read_text()) for i in pages}
     ok, bad = [], []
     for r in rows:
         m = _DIST.match(r["district"])
         village = m.group(3) if m else r["district"]
-        hit_n = _vhit(r["name"], vt[r["page"]])
-        hit_v = _vhit(village, vt[r["page"]])
+        # 同一列的儲存格內比對（不是整頁找得到就算）；儲存格會斷行，Vision 拆成多段再接回
+        hit_n = _vhit(r["name"], _vision_in_cell(vitems[r["page"]], r.pop("cell_name")))
+        hit_v = _vhit(village, _vision_in_cell(vitems[r["page"]], r.pop("cell_district")))
         (ok if hit_n and hit_v else bad).append({**r, "name_ok": hit_n, "village_ok": hit_v})
     print(f"{typ}：{len(rows)} 筆，影像 OCR 姓名與村里名皆對上 {len(ok)}，未對上 {len(bad)}")
     review = CACHE / f"roster_review_{typ}.json"
@@ -814,7 +841,13 @@ def cmd_roster_import(args):
     confirmed_f = CACHE / f"roster_confirmed_{typ}.json"
     confirmed = {(c["district"], c["name"]) for c in json.loads(confirmed_f.read_text())} \
         if confirmed_f.exists() else set()
-    held = [b for b in bad if (b["district"], b["name"]) not in confirmed]
+    # 造字（Unicode 私用區）或村里名缺字：原頁也印不出該字，無法確認，一律不收
+    pua = lambda t: any(0xE000 <= ord(ch) <= 0xF8FF for ch in t)
+    unsure = [{**r, "name_ok": False, "village_ok": False} for r in ok
+              if pua(r["name"] + r["district"]) or not _DIST.match(r["district"])]
+    bad += unsure
+    held = [b for b in bad if (b["district"], b["name"]) not in confirmed
+            or pua(b["name"] + b["district"]) or not _DIST.match(b["district"])]
     if held:
         print(f"  ⚠ {len(held)} 筆未經雙通道或人工確認，本次不匯入；清單見 {review}")
     if args.dry_run:
