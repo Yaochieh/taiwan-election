@@ -141,7 +141,10 @@ def get_election_by_id(election_id: int) -> dict | None:
 
 # ── Candidates ─────────────────────────────────────────────────────────────────
 
-def get_candidates_by_election(election_id: int) -> pd.DataFrame:
+def get_candidates_by_election(election_id: int, county: str | None = None) -> pd.DataFrame:
+    """county：只取選區以該縣市開頭者（村里長 1.4 萬人，前端按縣市分頁取）。"""
+    county_sql = "AND c.district LIKE ? || '%'" if county else ""
+    params = (election_id, county) if county else (election_id,)
     with get_connection() as conn:
         return pd.read_sql_query(
             f"""
@@ -155,12 +158,21 @@ def get_candidates_by_election(election_id: int) -> pd.DataFrame:
             LEFT JOIN candidate_bulletin_profiles bp ON bp.candidate_id = c.candidate_id
             LEFT JOIN election_results r ON r.candidate_id = c.candidate_id
                                         AND r.election_id = c.election_id
-            WHERE c.election_id = ?
+            WHERE c.election_id = ? {county_sql}
             GROUP BY c.candidate_id
             ORDER BY votes DESC NULLS LAST, c.district, bp.ballot_no, c.candidate_id
             """,
-            conn, params=(election_id,)
+            conn, params=params
         )
+
+
+def get_candidate_county_counts(election_id: int) -> list[dict]:
+    """各縣市候選人數（選區字串前三字為縣市名）。"""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT substr(district, 1, 3) AS county, COUNT(*) AS n FROM candidates "
+            "WHERE election_id = ? GROUP BY county", (election_id,)).fetchall()
+    return [{"county": r["county"], "n": r["n"]} for r in rows]
 
 
 def get_candidate_by_id(candidate_id: int) -> dict | None:
@@ -540,6 +552,8 @@ def get_person_profile(name: str) -> dict:
                 ON er.candidate_id = c.candidate_id
                    AND er.election_id = c.election_id
             WHERE c.name = ?
+              -- 村里長 1.4 萬人同名機率高，個人頁按姓名合併會把不同人混在一起，先不併入
+              AND COALESCE(e.type, '') != 'village_chief'
             GROUP BY c.candidate_id
             ORDER BY e.date DESC
         """, (name,)).fetchall()
@@ -1312,7 +1326,7 @@ def get_candidates_with_platform_status(election_id: int, district: str | None =
         base_cols = f"""
             c.candidate_id, c.name AS candidate_name,
             p.name AS party_name, p.color_hex, c.background,
-            er.district, er.votes, er.elected,
+            COALESCE(er.district, c.district) AS district, er.votes, er.elected,
             {photo_col},
             (SELECT COUNT(*) FROM platforms pl
              WHERE pl.candidate_id = c.candidate_id AND pl.election_id = ?) AS platform_count,
@@ -1324,23 +1338,23 @@ def get_candidates_with_platform_status(election_id: int, district: str | None =
             q = f"""
                 SELECT {base_cols}
                 FROM candidates c
-                JOIN election_results er
+                LEFT JOIN election_results er
                     ON er.candidate_id = c.candidate_id AND er.election_id = c.election_id
                 LEFT JOIN parties p ON c.party_id = p.party_id
-                WHERE c.election_id = ? AND er.district = ?
-                ORDER BY er.elected DESC, er.votes DESC
+                WHERE c.election_id = ? AND COALESCE(er.district, c.district) = ?
+                ORDER BY er.elected DESC, er.votes DESC, c.district, c.candidate_id
             """
             params = (election_id, election_id, election_id, district)
         else:
             q = f"""
                 SELECT {base_cols}
                 FROM candidates c
-                JOIN election_results er
+                LEFT JOIN election_results er
                     ON er.candidate_id = c.candidate_id AND er.election_id = c.election_id
                 LEFT JOIN parties p ON c.party_id = p.party_id
                 WHERE c.election_id = ?
                 GROUP BY c.candidate_id
-                ORDER BY er.elected DESC, er.votes DESC
+                ORDER BY er.elected DESC, er.votes DESC, c.district, c.candidate_id
             """
             params = (election_id, election_id, election_id)
         return pd.read_sql_query(q, conn, params=params)
@@ -1370,9 +1384,14 @@ def get_districts_for_election(election_id: int) -> pd.DataFrame:
             """
             SELECT DISTINCT district FROM election_results
             WHERE election_id = ?
+            UNION
+            -- 尚未開票：沒有 election_results，改用候選人登記的選區
+            SELECT DISTINCT district FROM candidates
+            WHERE election_id = ? AND district IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM election_results WHERE election_id = ?)
             ORDER BY district
             """,
-            conn, params=(election_id,)
+            conn, params=(election_id, election_id, election_id)
         )
 
 
@@ -1391,6 +1410,7 @@ def search_candidates(query: str) -> pd.DataFrame:
             LEFT JOIN parties p ON c.party_id = p.party_id
             LEFT JOIN election_results r ON r.candidate_id = c.candidate_id AND r.election_id = c.election_id
             WHERE c.name LIKE ?
+              AND e.type != 'village_chief'  -- 同 get_person_profile：不併入個人頁
             GROUP BY c.candidate_id
             ORDER BY e.date DESC
             """,

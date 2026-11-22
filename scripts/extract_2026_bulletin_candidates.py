@@ -745,14 +745,113 @@ def cmd_import(args):
         conn.commit()
 
 
+# ── 地方層級（無選舉公報）：直接由中選會登記名冊匯入，姓名以影像 OCR 雙通道核對 ──
+LOCAL_ELECTIONS = {
+    "村里長": {"name": "115年村里長選舉", "type": "village_chief",
+               "desc": "村（里）長；名單取自中選會候選人登記名冊（115-08-31～09-04 登記）"},
+}
+REG_MARK = "[登記中未經審定]"
+_DIST = re.compile(r"^(.{2}[市縣])(.+?[區鄉鎮市])(.+)$")
+
+
+# Vision 常把異體字讀成另一寫法（實測：德→徳、黃→黄、橫→横、啓→啟、煥→焕）。
+# 只在「比對」時視為相同，寫入一律用名冊原字；其他不一致一律人工看 PDF 原頁。
+_VARIANTS = str.maketrans({"徳": "德", "黄": "黃", "横": "橫", "啟": "啓", "焕": "煥"})
+
+
+def _vkey(s: str) -> str:
+    return name_key(norm(s)).translate(_VARIANTS)
+
+
+def _vhit(s: str, page_key_text: str) -> bool:
+    k = _vkey(s)
+    if k in page_key_text:
+        return True
+    # 原住民族名：漢字與羅馬拼音 Vision 常拆成兩段
+    han = re.sub(r"[^\u4e00-\u9fff]", "", k)
+    lat = re.sub(r"[^a-z]", "", k)
+    return bool(han and lat) and han in page_key_text and lat in re.sub(r"[^a-z]", "", page_key_text)
+
+
+def roster_rows_by_page(typ: str):
+    """與 load_roster 同一解析法，但保留頁碼（核對影像 OCR 要用）。"""
+    pdf = ROSTER_DIR / f"{ROSTER_FILES[typ]}.pdf"
+    out = []
+    for i, page in enumerate(fitz.open(pdf)):
+        for t in page.find_tables().tables:
+            for r in t.extract():
+                if r[0] == "選舉區" or not r[2]:
+                    continue
+                c = [(x or "").replace("\n", "") for x in r] + [""] * 5
+                out.append({"district": c[0], "name": c[2], "party": c[3], "note": c[4], "page": i})
+    return pdf, out
+
+
+def cmd_roster_import(args):
+    typ = args.only or "村里長"
+    if typ not in LOCAL_ELECTIONS:
+        sys.exit(f"✗ {typ} 不在 LOCAL_ELECTIONS（有公報的類型請走 extract/verify/import）")
+    meta = LOCAL_ELECTIONS[typ]
+    pdf, rows = roster_rows_by_page(typ)
+    ref = load_roster()[typ]
+    if len(rows) != ROSTER_EXPECT[typ] or [(r["district"], r["name"]) for r in rows] != \
+            [(r["district"], r["name"]) for r in ref]:
+        sys.exit(f"✗ 逐頁解析 {len(rows)} 筆與名冊快取不一致")
+    pages = sorted({r["page"] for r in rows})
+    vision_ocr_pages([(pdf, i) for i in pages])
+    vt = {i: _vkey(vision_text(pdf, i)) for i in pages}
+    ok, bad = [], []
+    for r in rows:
+        m = _DIST.match(r["district"])
+        village = m.group(3) if m else r["district"]
+        hit_n = _vhit(r["name"], vt[r["page"]])
+        hit_v = _vhit(village, vt[r["page"]])
+        (ok if hit_n and hit_v else bad).append({**r, "name_ok": hit_n, "village_ok": hit_v})
+    print(f"{typ}：{len(rows)} 筆，影像 OCR 姓名與村里名皆對上 {len(ok)}，未對上 {len(bad)}")
+    review = CACHE / f"roster_review_{typ}.json"
+    review.write_text(json.dumps(bad, ensure_ascii=False, indent=1))
+    # 人工目視確認過的（看過 PDF 原頁截圖，名冊文字正確）才放行
+    confirmed_f = CACHE / f"roster_confirmed_{typ}.json"
+    confirmed = {(c["district"], c["name"]) for c in json.loads(confirmed_f.read_text())} \
+        if confirmed_f.exists() else set()
+    held = [b for b in bad if (b["district"], b["name"]) not in confirmed]
+    if held:
+        print(f"  ⚠ {len(held)} 筆未經雙通道或人工確認，本次不匯入；清單見 {review}")
+    if args.dry_run:
+        return
+    conn = sqlite3.connect(DB)
+    e = conn.execute("SELECT election_id FROM elections WHERE name=?", (meta["name"],)).fetchone()
+    eid = e[0] if e else conn.execute(
+        "INSERT INTO elections (name, type, date, status, description) VALUES (?, ?, '2026-11-28', 'upcoming', ?)",
+        (meta["name"], meta["type"], meta["desc"])).lastrowid
+    url = f"https://web.cec.gov.tw/api/file/{ROSTER_FILES[typ]}.pdf"
+    new_parties, n_new = [], 0
+    held_keys = {(b["district"], b["name"]) for b in held}
+    for r in rows:
+        if (r["district"], r["name"]) in held_keys:
+            continue
+        if conn.execute("SELECT 1 FROM candidates WHERE election_id=? AND district=? AND name=?",
+                        (eid, r["district"], r["name"])).fetchone():
+            continue
+        conn.execute(
+            "INSERT INTO candidates (name, party_id, election_id, district, background, official_source) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (r["name"], party_id_of(conn, r["party"], new_parties), eid, r["district"], REG_MARK,
+             f"中選會 115年地方公職人員選舉候選人登記名冊 {ROSTER_PAGE} {url}（第{r['page'] + 1}頁）"))
+        n_new += 1
+    conn.commit()
+    print(f"✓ e{eid} 新增 {n_new}；新政黨 {sorted(set(new_parties))}")
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["ocr", "extract", "verify", "import"])
+    ap.add_argument("cmd", choices=["ocr", "extract", "verify", "import", "roster-import"])
     ap.add_argument("--only")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--workers", type=int, default=8)
     a = ap.parse_args()
-    {"ocr": cmd_ocr, "extract": cmd_extract, "verify": cmd_verify, "import": cmd_import}[a.cmd](a)
+    {"ocr": cmd_ocr, "extract": cmd_extract, "verify": cmd_verify, "import": cmd_import,
+     "roster-import": cmd_roster_import}[a.cmd](a)
 
 
 if __name__ == "__main__":

@@ -11,10 +11,17 @@ router = APIRouter()
 
 
 @router.get("", response_model=list[Candidate])
-def list_candidates(election_id: int = Query(..., description="選舉 ID")):
+def list_candidates(election_id: int = Query(..., description="選舉 ID"),
+                    county: str | None = Query(None, description="只取該縣市（例：臺北市）")):
     """某選舉的候選人清單"""
-    df = queries.get_candidates_by_election(election_id)
+    df = queries.get_candidates_by_election(election_id, county)
     return df_to_records(df)
+
+
+@router.get("/county-counts")
+def candidate_county_counts(election_id: int = Query(..., description="選舉 ID")):
+    """各縣市候選人數"""
+    return queries.get_candidate_county_counts(election_id)
 
 
 @router.get("/search", response_model=list[CandidateSearchResult])
