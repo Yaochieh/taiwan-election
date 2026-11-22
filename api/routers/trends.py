@@ -32,3 +32,9 @@ def mayoral_county_winners(merge_old: bool = True):
     """歷屆縣市長選舉各縣市勝出政黨（用於熱力圖）。
     merge_old=True 把舊縣（高雄縣等）合併到升格後直轄市。"""
     return queries.get_mayoral_county_winners(merge_old)
+
+
+@router.get("/council/county-seats")
+def council_county_seats():
+    """各縣市議會歷屆政黨席次（2014 起）：[{year, county, party, color, seats}]"""
+    return queries.get_council_seats_by_county()

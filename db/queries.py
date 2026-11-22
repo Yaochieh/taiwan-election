@@ -1911,3 +1911,31 @@ def get_quantification_stats() -> dict:
             "parties": parties[:10],
             "years": years,
         }
+
+
+def get_council_seats_by_county() -> list[dict]:
+    """各縣市議會歷屆政黨席次（當選人數，中選會 elcand「*」）。
+
+    只取 2014 起：2014／2018／2022 已用 import_council_results.py 以 (姓名, 選區) 重匯、
+    原住民選區完整；2009／2010 舊匯入資料選區未解析，不納入以免誤導。
+    縣市 = 選區字串前三字（直轄市原住民選區以縣市為名，一併計入）。
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT CAST(substr(e.date, 1, 4) AS INTEGER) AS year,
+                   substr(r.district, 1, 3) AS county,
+                   COALESCE(p.name, '無黨籍及未經政黨推薦') AS party,
+                   p.color_hex AS color,
+                   SUM(r.elected) AS seats
+            FROM election_results r
+            JOIN elections e ON e.election_id = r.election_id
+            JOIN candidates c ON c.candidate_id = r.candidate_id
+            LEFT JOIN parties p ON p.party_id = c.party_id
+            WHERE e.type = 'council' AND e.status = 'completed'
+              AND e.date >= '2014-01-01' AND r.elected = 1
+            GROUP BY year, county, party
+            ORDER BY year, county, seats DESC
+            """
+        ).fetchall()
+    return [dict(r) for r in rows]
