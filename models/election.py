@@ -207,6 +207,8 @@ class CandidatePlatformStatus(BaseModel):
     photo_path: str | None = None
     platform_count: int = Field(description="文字政見數")
     image_count: int = Field(description="圖片政見張數")
+    bulletin_url: str | None = Field(None, description="2026 公報 PDF（有此欄＝候選人有刊登於公報）")
+    bulletin_page: int | None = None
 
 
 # ── 趨勢 ──────────────────────────────────────────────────────────────────────

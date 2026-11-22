@@ -21,6 +21,7 @@
   python scripts/extract_2026_bulletin_candidates.py import [--dry-run]
 """
 import argparse
+import collections
 import hashlib
 import io
 import json
@@ -617,7 +618,8 @@ def find_photos(pdf: Path, page_no: int, names: list[str]) -> dict[str, tuple[by
             pix = fitz.Pixmap(doc, best[1])
             if pix.alpha or pix.n - pix.alpha != 3:
                 pix = fitz.Pixmap(fitz.csRGB, pix)
-            out[n] = (pix.tobytes("png"), pix.width, pix.height, best[2] | best[3])  # 末項：照片＋姓名框，供目視抽查
+            # 第 4 項：照片＋姓名框（供目視抽查）；第 5 項：照片框（政見截圖定位用）
+            out[n] = (pix.tobytes("png"), pix.width, pix.height, best[2] | best[3], best[2])
     return out
 
 
@@ -703,7 +705,7 @@ def cmd_import(args):
         pw = ph = None
         photos = find_photos(ROOT / r["pdf"], r["page"], [r["name"]])
         if r["name"] in photos:
-            png, w, h, _ = photos[r["name"]]
+            png, w, h = photos[r["name"]][:3]
             if not args.dry_run:
                 path, pw, ph = save_photo(png, eid, cid)
                 conn.execute("UPDATE candidates SET photo_path=? WHERE candidate_id=?", (path, cid))
@@ -876,15 +878,209 @@ def cmd_roster_import(args):
     print(f"✓ e{eid} 新增 {n_new}；新政黨 {sorted(set(new_parties))}")
 
 
+# ── 議員選舉區範圍與名額（中選會 115.08.20 公告） ──
+ANNOUNCE_URL = "https://web.cec.gov.tw/api/file/45d8e965-f63a-46d5-b636-7d81e47cf4d1.pdf"
+# 公告表格依此順序列出各縣市；縣市欄為直排字，桃園、高雄抽不到文字，改用順序＋名冊選區數核對
+ANNOUNCE_ORDER = ["臺北市", "新北市", "桃園市", "臺中市", "臺南市", "高雄市", "新竹縣", "苗栗縣", "彰化縣",
+                  "南投縣", "雲林縣", "嘉義縣", "屏東縣", "宜蘭縣", "花蓮縣", "臺東縣", "澎湖縣", "金門縣",
+                  "連江縣", "基隆市", "新竹市", "嘉義市"]
+MUNI = {"臺北市", "新北市", "桃園市", "臺中市", "臺南市", "高雄市"}
+
+DISTRICT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS election_districts (
+    election_id INTEGER NOT NULL REFERENCES elections(election_id),
+    district    TEXT NOT NULL,
+    area        TEXT NOT NULL,     -- 選舉區範圍，公告原文
+    seats       INTEGER,           -- 應選名額
+    women_seats INTEGER,           -- 其中婦女保障名額
+    source_url  TEXT NOT NULL,
+    PRIMARY KEY (election_id, district)
+);
+"""
+
+
+def cmd_districts(args):
+    pdf = ROSTER_DIR / "announce_0820.pdf"
+    rows = []
+    doc = fitz.open(pdf)
+    for pno in range(1, len(doc)):
+        for t in doc[pno].find_tables().tables:
+            for r in t.extract():
+                c = [(x or "").replace("\n", "").replace(" ", "") for x in r]
+                for k, x in enumerate(c):
+                    if re.fullmatch(r"第\d+選舉區", x):
+                        rest = [y for y in c[k + 1:] if y]
+                        if rest and rest[0].endswith(("、", "之")):
+                            # 跨頁斷掉的儲存格：接續文字在下一頁開頭（跳過直排縣市名的單字行）
+                            cont = []
+                            for line in doc[pno + 1].get_text().splitlines():
+                                line = line.strip()
+                                if re.fullmatch(r"第\d+選舉區.*", line) or re.fullmatch(r"[\d,]+", line) and cont:
+                                    break
+                                if len(line) >= 2 and not line.isdigit():
+                                    cont.append(line)
+                            rest[0] += "".join(cont)
+                        rows.append((x, rest))
+                        break
+    groups = []
+    for x, rest in rows:
+        if x == "第1選舉區":
+            groups.append([])
+        groups[-1].append((x, rest))
+    R = load_roster()
+    if len(groups) != len(ANNOUNCE_ORDER):
+        sys.exit(f"✗ 公告解析出 {len(groups)} 個縣市，預期 {len(ANNOUNCE_ORDER)}")
+    out = []
+    for county, g in zip(ANNOUNCE_ORDER, groups):
+        typ = "直轄市議員" if county in MUNI else "縣市議員"
+        n_roster = len({r["district"] for r in R[typ] if r["district"].startswith(county)})
+        if n_roster != len(g):
+            sys.exit(f"✗ {county} 公告 {len(g)} 區、名冊 {n_roster} 區，順序對應有誤")
+        for i, (x, rest) in enumerate(g, 1):
+            if x != f"第{i}選舉區" or len(rest) < 2 or not rest[1].isdigit():
+                sys.exit(f"✗ {county}{x} 解析異常：{rest}")
+            district = f"{county}{x}"
+            eid = INDIGENOUS.get(district, 79) if county in MUNI else 82
+            out.append((eid, district, rest[0], int(rest[1]),
+                        int(rest[2]) if len(rest) > 2 and rest[2].isdigit() else None))
+    print(f"{len(out)} 個選舉區；例：{out[0]}")
+    if args.dry_run:
+        return
+    conn = sqlite3.connect(DB)
+    conn.executescript(DISTRICT_SCHEMA)
+    conn.executemany(
+        "INSERT OR REPLACE INTO election_districts VALUES (?, ?, ?, ?, ?, ?)",
+        [(*o, ANNOUNCE_URL) for o in out])
+    conn.commit()
+
+
+# ── 圖片版政見：公報上印成圖片（或文字抽不出）的政見，截圖＋影像 OCR 文字 ──
+PLAT_HEADERS = {"政見", "政見內容", "政見：", "政見:", "政見欄"}
+
+
+def platform_rects(conn) -> tuple[dict, collections.Counter]:
+    """沒有文字政見的 2026 候選人 → 公報上「政見」格的位置。
+    定位：候選人照片所在表格裡、照片右側最近的「政見」標題，取其正下方儲存格。
+    任何一條檢查不過就不截（寧缺勿錯）：
+      框內不能有別人的照片、不能有第二個政見標題、水平範圍不能涵蓋別人照片所在欄，
+      下緣不超過該候選人左欄最後一行（具結聲明）。"""
+    todo = conn.execute("""
+        SELECT c.candidate_id, c.name, c.election_id, bp.source_pdf, bp.source_page, bp.source_url
+        FROM candidates c JOIN candidate_bulletin_profiles bp USING (candidate_id)
+        WHERE c.election_id BETWEEN 77 AND 82
+          AND NOT EXISTS (SELECT 1 FROM platforms p WHERE p.candidate_id = c.candidate_id)""").fetchall()
+    bypage = collections.defaultdict(list)
+    for r in todo:
+        bypage[(r[3], r[4])].append(r)
+    res, why = {}, collections.Counter()
+    for (pdfrel, pg), cands in bypage.items():
+        pdf = ROOT / pdfrel
+        page = fitz.open(pdf)[pg - 1]
+        allnames = [r[0] for r in conn.execute(
+            "SELECT c.name FROM candidates c JOIN candidate_bulletin_profiles bp USING (candidate_id) "
+            "WHERE bp.source_pdf = ? AND bp.source_page = ?", (pdfrel, pg))]
+        ph = find_photos(pdf, pg, allnames)
+        toks = layout_tokens(pdf, pg - 1)
+        tables = page.find_tables().tables
+        heads = [r for t, r in toks if norm(t) in PLAT_HEADERS]
+        ctr = lambda r: fitz.Point((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2)
+        for cid, name, eid, _, _, url in cands:
+            if name not in ph:
+                why["no_photo_anchor"] += 1; continue
+            a = ph[name][4]
+            tb = [t for t in tables if fitz.Rect(t.bbox).contains(ctr(a))]
+            if not tb:
+                why["no_table"] += 1; continue
+            T = min(tb, key=lambda t: fitz.Rect(t.bbox).get_area())   # 頁框也會被偵測成大表，取最內層
+            hs = [h for h in heads if fitz.Rect(T.bbox).contains(ctr(h)) and h.x0 > a.x0]
+            if not hs:
+                why["no_header"] += 1; continue
+            h = min(hs, key=lambda h: max(0, h.x0 - a.x1) + abs(ctr(h).y - ctr(a).y) * 0.5)
+            cells = [fitz.Rect(x) for x in T.cells if x]
+            hcell = [x for x in cells if x.contains(ctr(h))]
+            if not hcell:
+                why["no_header_cell"] += 1; continue
+            hcell = min(hcell, key=lambda r: r.get_area())
+            below = [x for x in cells if x.y0 >= hcell.y1 - 2 and x.x0 < hcell.x1 - 5 and x.x1 > hcell.x0 + 5]
+            if not below:
+                why["no_cell_below"] += 1; continue
+            u = fitz.Rect(hcell.x0, hcell.y1, hcell.x1, max(x.y1 for x in below))
+            foot = [r.y1 for t, r in toks if ("國籍" in t or "護照" in t)
+                    and a.x0 - 90 < ctr(r).x < a.x1 + 90 and r.y0 > a.y1]
+            foot = [f for f in foot if f > u.y0 + 40]   # 政見格在左欄下方的版型：具結聲明在框上方，不夾
+            if foot:
+                # 同頁下方的候選人也有具結聲明：只取最近那組（與最近一行相距 120pt 內）
+                first = min(foot)
+                u.y1 = min(u.y1, max(f for f in foot if f - first <= 120) + 25)
+            if u.height < 40:
+                why["too_small"] += 1; continue
+            others = [v[4] for n2, v in ph.items() if n2 != name]
+            if any(u.intersects(o) and (u & o).get_area() > 0.3 * o.get_area() for o in others):
+                why["contains_other_photo"] += 1; continue
+            if any(u.x0 < ctr(o).x < u.x1 for o in others):
+                why["spans_other_column"] += 1; continue
+            if any(u.contains(ctr(hh)) for hh in heads):
+                why["contains_other_header"] += 1; continue
+            res[cid] = {"pdf": pdfrel, "page": pg, "rect": list(u), "name": name, "eid": eid, "url": url}
+            why["ok"] += 1
+    return res, why
+
+
+def cmd_platform_images(args):
+    from PIL import Image
+    fitz.TOOLS.mupdf_display_errors(False)
+    conn = sqlite3.connect(DB)
+    res, why = platform_rects(conn)
+    print(f"政見格定位：{dict(why)}")
+    if args.dry_run:
+        return
+    out_dir = ROOT / "data" / "bulletin_images"
+    n = 0
+    for cid, v in res.items():
+        pdf = ROOT / v["pdf"]
+        page = fitz.open(pdf)[v["page"] - 1]
+        r = fitz.Rect(v["rect"])
+        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=r)
+        im = Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
+        if im.width > 1100:
+            im = im.resize((1100, round(im.height * 1100 / im.width)), Image.LANCZOS)
+        rel = Path("data/bulletin_images") / str(v["eid"]) / f"{cid}_1.webp"
+        (ROOT / rel).parent.mkdir(parents=True, exist_ok=True)
+        im.save(ROOT / rel, "WEBP", quality=78, method=6)
+        # 影像 OCR 文字：同頁 Vision 結果中落在政見格內者，依行（y）再依 x 排序
+        vision_ocr_pages([(pdf, v["page"] - 1)])
+        items = json.loads((VISION_DIR / f"{page_key(pdf, v['page'] - 1)}.json").read_text())
+        inside, seen = [], set()
+        for it in items:
+            b = fitz.Rect(it["box"])
+            c = fitz.Point((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2)
+            key = (it["t"], round(b.x0 / 6), round(b.y0 / 6))   # 切塊重疊造成的重複
+            if r.contains(c) and key not in seen:
+                seen.add(key); inside.append(it)
+        inside.sort(key=lambda it: (round(it["box"][1] / 10), it["box"][0]))
+        ocr = "\n".join(it["t"] for it in inside)
+        conn.execute("DELETE FROM platform_sources WHERE candidate_id = ? AND election_id = ? "
+                     "AND source_type = 'image_platform'", (cid, v["eid"]))
+        conn.execute(
+            "INSERT INTO platform_sources (candidate_id, election_id, source_type, url, local_path, "
+            "description, fetched_at, ocr_text) VALUES (?, ?, 'image_platform', ?, ?, ?, ?, ?)",
+            (cid, v["eid"], v["url"], rel.as_posix(),
+             f"候選人公報政見（圖片版，自中選會選舉公報第{v['page']}頁擷取）", TODAY, ocr or None))
+        n += 1
+    conn.commit()
+    print(f"✓ 政見截圖 {n} 張")
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["ocr", "extract", "verify", "import", "roster-import"])
+    ap.add_argument("cmd", choices=["ocr", "extract", "verify", "import", "roster-import", "districts", "platform-images"])
     ap.add_argument("--only")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--workers", type=int, default=8)
     a = ap.parse_args()
     {"ocr": cmd_ocr, "extract": cmd_extract, "verify": cmd_verify, "import": cmd_import,
-     "roster-import": cmd_roster_import}[a.cmd](a)
+     "roster-import": cmd_roster_import, "districts": cmd_districts,
+     "platform-images": cmd_platform_images}[a.cmd](a)
 
 
 if __name__ == "__main__":

@@ -1328,6 +1328,7 @@ def get_candidates_with_platform_status(election_id: int, district: str | None =
             p.name AS party_name, p.color_hex, c.background,
             COALESCE(er.district, c.district) AS district, er.votes, er.elected,
             {photo_col},
+            bp.source_url AS bulletin_url, bp.source_page AS bulletin_page,
             (SELECT COUNT(*) FROM platforms pl
              WHERE pl.candidate_id = c.candidate_id AND pl.election_id = ?) AS platform_count,
             (SELECT COUNT(*) FROM platform_sources ps
@@ -1341,6 +1342,7 @@ def get_candidates_with_platform_status(election_id: int, district: str | None =
                 LEFT JOIN election_results er
                     ON er.candidate_id = c.candidate_id AND er.election_id = c.election_id
                 LEFT JOIN parties p ON c.party_id = p.party_id
+                LEFT JOIN candidate_bulletin_profiles bp ON bp.candidate_id = c.candidate_id
                 WHERE c.election_id = ? AND COALESCE(er.district, c.district) = ?
                 ORDER BY er.elected DESC, er.votes DESC, c.district, c.candidate_id
             """
@@ -1352,6 +1354,7 @@ def get_candidates_with_platform_status(election_id: int, district: str | None =
                 LEFT JOIN election_results er
                     ON er.candidate_id = c.candidate_id AND er.election_id = c.election_id
                 LEFT JOIN parties p ON c.party_id = p.party_id
+                LEFT JOIN candidate_bulletin_profiles bp ON bp.candidate_id = c.candidate_id
                 WHERE c.election_id = ?
                 GROUP BY c.candidate_id
                 ORDER BY er.elected DESC, er.votes DESC, c.district, c.candidate_id
@@ -1393,6 +1396,17 @@ def get_districts_for_election(election_id: int) -> pd.DataFrame:
             """,
             conn, params=(election_id, election_id, election_id)
         )
+
+
+def get_election_district_info(election_id: int) -> list[dict]:
+    """選舉區範圍、應選名額（election_districts，來源為中選會選舉公告）。"""
+    with get_connection() as conn:
+        if not conn.execute("SELECT 1 FROM sqlite_master WHERE name='election_districts'").fetchone():
+            return []
+        rows = conn.execute(
+            "SELECT district, area, seats, women_seats, source_url FROM election_districts "
+            "WHERE election_id = ? ORDER BY district", (election_id,)).fetchall()
+    return [dict(r) for r in rows]
 
 
 def search_candidates(query: str) -> pd.DataFrame:

@@ -250,3 +250,28 @@ def test_2026_platforms_have_bulletin_source(conn):
     bad = conn.execute("SELECT platform_id FROM platforms WHERE election_id BETWEEN 77 AND 82 "
                        "AND (source_url IS NULL OR content_raw IS NULL)").fetchall()
     assert not bad, f"2026 政見缺來源：{[r[0] for r in bad][:10]}"
+
+
+def test_2026_image_platforms_have_file_and_source(conn):
+    """2026 圖片政見：檔案存在、附公報 URL。"""
+    rows = conn.execute("SELECT candidate_id, local_path, url FROM platform_sources "
+                        "WHERE election_id BETWEEN 77 AND 82 AND source_type='image_platform'").fetchall()
+    bad = [r[0] for r in rows if not r[2] or not r[1] or not (ROOT / r[1]).exists()]
+    assert not bad, f"圖片政見缺檔案或來源：{bad[:10]}"
+
+
+def test_election_districts_match_announcement(conn):
+    """選舉區範圍：每筆有來源、名額為正、範圍沒有被斷頁切掉（結尾不是「、」「之」）。"""
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name='election_districts'").fetchone():
+        return
+    bad = conn.execute("SELECT district FROM election_districts WHERE source_url IS NULL "
+                       "OR seats IS NULL OR seats <= 0 OR area LIKE '%、' OR area LIKE '%之'").fetchall()
+    assert not bad, f"選舉區資料異常：{[r[0] for r in bad]}"
+
+
+def test_village_chiefs_have_roster_source(conn):
+    """村里長（登記名冊匯入）：每筆都標來源與登記標記。"""
+    bad = conn.execute("""SELECT c.candidate_id FROM candidates c JOIN elections e USING (election_id)
+                          WHERE e.type='village_chief' AND (c.official_source IS NULL
+                                OR c.background IS NOT '[登記中未經審定]')""").fetchall()
+    assert not bad, f"村里長缺來源或標記：{[r[0] for r in bad][:10]}"

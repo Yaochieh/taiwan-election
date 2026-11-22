@@ -74,6 +74,12 @@ def get_election_districts(election_id: int):
     return df_to_records(df)
 
 
+@router.get("/{election_id}/district-info")
+def get_election_district_info(election_id: int):
+    """選舉區範圍與應選名額（中選會選舉公告；目前只有 2026 議員）"""
+    return queries.get_election_district_info(election_id)
+
+
 @router.get("/{election_id}/results", response_model=list[ElectionResult])
 def get_results(
     election_id: int,
