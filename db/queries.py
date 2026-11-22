@@ -650,6 +650,11 @@ def get_person_profile(name: str) -> dict:
 
         total_races = len(races)
         total_wins = sum(1 for r in races if r["elected"] == 1)
+        # 尚未投票的選舉（2026）不算進勝選率，否則新人會顯示「勝選率 0%」
+        import datetime as _dt
+        today = _dt.date.today().isoformat()
+        decided = [r for r in races if (r["election_date"] or "") < today]
+        upcoming_races = total_races - len(decided)
 
         return {
             "name": name,
@@ -665,7 +670,9 @@ def get_person_profile(name: str) -> dict:
             "votes_count": official["votes_count"] if official else None,
             "total_races": total_races,
             "total_wins": total_wins,
-            "win_rate": total_wins / total_races if total_races > 0 else 0,
+            "win_rate": total_wins / len(decided) if decided else 0,
+            "decided_races": len(decided),
+            "upcoming_races": upcoming_races,
             "races": races,
             "party_history": parties,
             "recalls": [dict(r) for r in conn.execute("""
