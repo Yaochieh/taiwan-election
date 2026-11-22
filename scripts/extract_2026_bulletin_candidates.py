@@ -414,8 +414,8 @@ def verify_record(c: dict, primary_n: str, vision_n: str, ridx: dict, county: st
     # 選舉種類以目錄為準；LLM 只需分對「首長／議員」（合刊公報裡的鄉鎮長、代表、村里長略過）
     off = c.get("office") or ""
     is_council_dir = "議員" in want
-    if is_council_dir and off not in ("直轄市議員", "縣市議員"):
-        return None, []
+    # 議員目錄的公報只刊議員：LLM 職稱常標錯（實測把原住民議員標成「山地原住民區民代表」、
+    # 連江議員標成「縣市長」），所以議員目錄不看職稱，下面一律以該縣市議員名冊比對姓名把關
     if not is_council_dir and off not in ("直轄市長", "縣市長"):
         return None, []
     book = ridx.get((want, county), {})
@@ -427,6 +427,11 @@ def verify_record(c: dict, primary_n: str, vision_n: str, ridx: dict, county: st
     elif len(by_cjk) == 1 and len(cjk(name)) >= 2:
         # 原住民候選人：公報只印漢名或族名拼法不同，以漢名唯一對應名冊
         row = by_cjk[0]
+    elif len(cjk(name)) >= 6 and len(pre := [r for r in book.values() if cjk(r["name"]).startswith(cjk(name))]) == 1 \
+            and (norm(pre[0]["name"]) in primary_n or norm(pre[0]["name"]) in vision_n):
+        # 超長姓名被 LLM 斷成兩段（例：「王妃天崩…霸凌者」＋「佀廣洋」）：前綴唯一對應名冊、且完整姓名在頁面原文裡
+        probs.append(f"姓名「{name}」為名冊「{pre[0]['name']}」的前段，完整姓名見於原文，採名冊寫法")
+        row = pre[0]
     else:
         def ed1(a, b):
             if abs(len(a) - len(b)) > 1:
