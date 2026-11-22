@@ -582,12 +582,35 @@ def find_photos(pdf: Path, page_no: int, names: list[str]) -> dict[str, tuple[by
     姓名位置用文字層 search_for，沒有文字層就用 OCR 座標。"""
     doc = fitz.open(pdf)
     page = doc[page_no - 1]
-    photos = []
+    # 尺寸門檻依頁寬縮放：多數公報頁寬約 1500pt，基隆等選委會用 A4（595pt）
+    sc = page.rect.width / 1500
+    def photo_shaped(r):
+        return 45 * sc <= r.width <= 320 * sc and 1.05 <= r.height / max(r.width, 1) <= 1.6
+    photos, tiles = [], []
     for img in page.get_images(full=True):
         xref = img[0]
         for r in page.get_image_rects(xref):
-            if 70 <= r.width <= 230 and 1.05 <= r.height / max(r.width, 1) <= 1.6:
+            if photo_shaped(r):
                 photos.append((xref, r))
+            elif r.width <= 320 * sc and r.height <= 320 * sc:
+                tiles.append(fitz.Rect(r))
+    # 部分選委會 PDF 把照片切成多塊小圖（基隆切上下兩半、彰化切成數百小方塊）：
+    # 相鄰圖塊併成一塊，形狀像大頭照就當照片，之後從頁面渲染該區域（xref = None）。
+    groups = []
+    for t in tiles:
+        g = fitz.Rect(t)
+        merged = True
+        while merged:
+            merged = False
+            for o in groups[:]:
+                if (o + (-1, -1, 1, 1)).intersects(g):
+                    g |= o
+                    groups.remove(o)
+                    merged = True
+        groups.append(g)
+    for g in groups:
+        if photo_shaped(g) and not any(g.intersects(r) for _, r in photos):
+            photos.append((None, g))
     pos = {}
     ocr_items = None
     for n in names:
@@ -606,25 +629,30 @@ def find_photos(pdf: Path, page_no: int, names: list[str]) -> dict[str, tuple[by
                 ocr_items = layout_tokens(pdf, page_no - 1)
             hits = [r for t, r in ocr_items if norm(n_search) in norm(t) and len(norm(t)) <= len(norm(n_search)) + 4]
         pos[n] = hits
-    out = {}
-    used = set()
+    # 全頁一起配對：所有 (姓名, 照片) 組合依距離由近到遠，一人一張、一張一人
+    pairs = []
     for n, hits in pos.items():
-        best = None
         for h in hits:
-            for xref, r in photos:
+            for k, (xref, r) in enumerate(photos):
                 dy = r.y0 - h.y0          # 照片在姓名下方（常見版型）
                 dx = abs((r.x0 + r.x1) / 2 - (h.x0 + h.x1) / 2)
-                if -60 <= dy <= 160 and dx <= 120:
-                    score = abs(dy) + dx
-                    if best is None or score < best[0]:
-                        best = (score, xref, r, h)
-        if best and best[1] not in used:
-            used.add(best[1])
-            pix = fitz.Pixmap(doc, best[1])
+                if -60 * sc <= dy <= 160 * sc and dx <= 120 * sc:
+                    pairs.append((abs(dy) + dx, n, k, h))
+    out = {}
+    used = set()
+    for score, n, k, h in sorted(pairs, key=lambda t: t[0]):
+        if n in out or k in used:
+            continue
+        used.add(k)
+        xref, r = photos[k]
+        if xref is None:
+            pix = page.get_pixmap(clip=r, dpi=200)
+        else:
+            pix = fitz.Pixmap(doc, xref)
             if pix.alpha or pix.n - pix.alpha != 3:
                 pix = fitz.Pixmap(fitz.csRGB, pix)
-            # 第 4 項：照片＋姓名框（供目視抽查）；第 5 項：照片框（政見截圖定位用）
-            out[n] = (pix.tobytes("png"), pix.width, pix.height, best[2] | best[3], best[2])
+        # 第 4 項：照片＋姓名框（供目視抽查）；第 5 項：照片框（政見截圖定位用）
+        out[n] = (pix.tobytes("png"), pix.width, pix.height, r | h, r)
     return out
 
 
