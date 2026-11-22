@@ -99,6 +99,13 @@
     24 筆不收：造字（Unicode 私用區）18 人名＋6 列村里名，原頁也印不出該字
     - 村里長同名多，不併入以姓名合併的個人頁與搜尋（`get_person_profile`／`search_candidates` 排除）
   - ✅ 政見頁 2026 選舉顯示 0 人已修（`get_candidates_with_platform_status` 改 LEFT JOIN results）
+  - ✅ 議員目錄不再看 LLM 職稱標記（曾把原住民議員標成區民代表），+9 人，合計 1,555
+    （直轄市議員 600/610、縣市議員 874/892；缺的 28 人：9 人公報上找不到，其餘姓名在亂碼頁讀不出）
+  - ✅ `platform-images`：印成圖片的政見截公報政見欄 569 張＋影像 OCR 文字（platform_sources image_platform）。
+    定位＝照片所在最內層表格、照片右側最近的「政見」標題下方儲存格；框到別人照片／別欄／第二個標題就不截。
+    抽查 60+ 張目視全對。其餘 ~90 人前端標「整理中」連公報原檔頁碼，不寫「未刊登」
+  - ✅ `districts`：議員選舉區範圍與應選名額（115.08.20 公告，221 區），22 縣市名額加總與公告「議員總額」一致
+  - ⚠ Vercel Data Cache 跨部署保留：大批更新資料後要把前端 `DATA_VERSION`（src/lib/api.ts）加一
   - ⏳ 下一步：鄉鎮市長 465／山地原住民區長 16 公報在各縣市選委會網站（JS 載入，API 403）；
     代表名單可用 `roster-import` 匯入（需在 LOCAL_ELECTIONS 加設定）
 
