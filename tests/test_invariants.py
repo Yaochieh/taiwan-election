@@ -275,3 +275,20 @@ def test_village_chiefs_have_roster_source(conn):
                           WHERE e.type='village_chief' AND (c.official_source IS NULL
                                 OR c.background IS NOT '[登記中未經審定]')""").fetchall()
     assert not bad, f"村里長缺來源或標記：{[r[0] for r in bad][:10]}"
+
+
+def test_council_2022_one_row_per_candidate(conn):
+    """2022 議員（import_council_2022.py）：候選人以 (姓名, 選區) 區分，每人恰一筆得票、
+    選區名不得是未解析的「地區(…)」代碼，當選數等於中選會 elcand「*」合計（直轄市 376、縣市 530）。"""
+    rows = conn.execute("""SELECT e.name, COUNT(*) n, COUNT(DISTINCT r.candidate_id) c, SUM(r.elected) won,
+                                  SUM(r.district LIKE '地區(%') raw
+                           FROM election_results r JOIN elections e USING (election_id)
+                           WHERE e.type='council' AND e.date='2022-11-26' GROUP BY e.name""").fetchall()
+    if not rows:
+        return
+    got = {r["name"]: r for r in rows}
+    for r in rows:
+        assert r["n"] == r["c"], f"{r['name']} 有候選人被併成多筆"
+        assert not r["raw"], f"{r['name']} 有未解析選區代碼"
+    assert got["111年直轄市議員選舉"]["won"] == 376
+    assert got["111年縣市議員選舉"]["won"] == 530

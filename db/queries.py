@@ -152,8 +152,19 @@ def get_candidates_by_election(election_id: int, county: str | None = None) -> p
                    c.photo_path, bp.ballot_no,
                    p.name AS party_name, p.abbreviation, p.color_hex,
                    {SQL_VOTES_DEDUP.format(t="r")} AS votes,
-                   MAX(r.elected) AS elected
+                   MAX(r.elected) AS elected,
+                   -- 上一屆（5 年內、同類型）同縣市同名者當選的年份；用來標「2022 當選」。
+                   -- 以「同名＋同縣市＋同類型」判定，前端文字寫「當選」而非斷定為同一人現任
+                   (SELECT MAX(substr(pe.date, 1, 4))
+                      FROM elections pe
+                      JOIN election_results pr ON pr.election_id = pe.election_id AND pr.elected = 1
+                      JOIN candidates pc ON pc.candidate_id = pr.candidate_id
+                     WHERE pe.type = ce.type AND pe.date < ce.date
+                       AND pe.date >= date(ce.date, '-5 years')
+                       AND pc.name = c.name
+                       AND substr(pr.district, 1, 3) = substr(c.district, 1, 3)) AS prev_win_year
             FROM candidates c
+            JOIN elections ce ON ce.election_id = c.election_id
             LEFT JOIN parties p ON c.party_id = p.party_id
             LEFT JOIN candidate_bulletin_profiles bp ON bp.candidate_id = c.candidate_id
             LEFT JOIN election_results r ON r.candidate_id = c.candidate_id

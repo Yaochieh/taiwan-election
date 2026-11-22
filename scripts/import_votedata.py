@@ -11,7 +11,7 @@
   - 區域/山地/平地立委 → legislative
   - 不分區政黨  → legislative（政黨票，候選人為政黨名稱）
   - C1/*     → mayoral（縣市長）
-  - R1-R3    → council（議員，multi-member SNTV，不計算當選旗標）
+  - T1-T3/*  → council（議員；2022 代碼，R1-R3 在 2022 是代表）
 
 用法：
   python scripts/import_votedata.py
@@ -53,13 +53,15 @@ CLASSIFY_RULES: list[tuple[str, str, str, str | None]] = [
     # 縣市長（含直轄市長 city 和省轄縣市 prv）
     ("city",       "C1",     "mayoral",      None),
     ("prv",        "C1",     "mayoral",      None),
-    # 議員（R1=直轄市議員區域, R2=直轄市原住民, R3=省轄議員）
-    ("city",       "R1",     "council",      "區域"),
-    ("prv",        "R1",     "council",      "區域"),
-    ("city",       "R2",     "council",      "平地原住民"),
-    ("prv",        "R2",     "council",      "平地原住民"),
-    ("city",       "R3",     "council",      "山地原住民"),
-    ("prv",        "R3",     "council",      "山地原住民"),
+    # 議員：2022 起中選會代碼 T1=議員區域、T2=平地原住民、T3=山地原住民（底下再分 city/prv）。
+    # 注意 2022 的 R1–R3 是「鄉鎮市民代表／直轄市原住民區民代表」，不是議員（見 zip 內「選舉種類代碼.xlsx」），
+    # 舊規則把 R 當議員是錯的；R 資料夾在 2022 沒有 city/prv 子層，所以當時沒被誤匯。
+    ("city",       "T1",     "council",      "區域"),
+    ("prv",        "T1",     "council",      "區域"),
+    ("city",       "T2",     "council",      "平地原住民"),
+    ("prv",        "T2",     "council",      "平地原住民"),
+    ("city",       "T3",     "council",      "山地原住民"),
+    ("prv",        "T3",     "council",      "山地原住民"),
     # 早期直接用中文命名
     ("縣市長",         "",     "mayoral",  None),
     ("直轄市長",       "",     "mayoral",  None),
@@ -659,6 +661,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--year", type=int, help="只匯入特定年份")
     parser.add_argument("--dry-run", action="store_true", help="只顯示，不寫入")
+    parser.add_argument("--type", dest="etype", help="只匯入特定類型（presidential/legislative/mayoral/council）；"
+                        "election_results 不去重，補匯單一類型時務必指定，避免重複寫入已匯入的選舉")
     args = parser.parse_args()
 
     if not ZIP_PATH.exists():
@@ -713,6 +717,8 @@ def main():
 
             if etype not in SUBJECT_ID_MAP:
                 continue
+            if args.etype and etype != args.etype:
+                continue
 
             election_label = f"{year} {etype}" + (f"/{description}" if description else "")
             print(f"\n[{election_label}]  {leaf_dir}")
@@ -744,6 +750,8 @@ def main():
             if year is None:
                 continue
             if args.year and year != args.year:
+                continue
+            if args.etype and etype != args.etype:
                 continue
 
             folder_hint = leaf

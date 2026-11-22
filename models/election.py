@@ -70,6 +70,7 @@ class Candidate(BaseModel):
     photo_path: str | None = None
     ballot_no: int | None = None
     background: str | None = None
+    prev_win_year: str | None = None
 
 
 class BulletinProfile(BaseModel):
